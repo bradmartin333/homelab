@@ -1,0 +1,5 @@
+include:
+  - traefik/docker-compose.yml
+  - postgres/docker-compose.yml
+  - vikunja/docker-compose.yml
+  - cloudflared/docker-compose.yml

@@ -1,0 +1,17 @@
+services:
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --config /home/nonroot/.cloudflared/config.yml run
+    volumes:
+      - /srv/docker-data/cloudflared:/home/nonroot/.cloudflared
+    networks:
+      - proxy
+    security_opt: [no-new-privileges:true]
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+networks:
+  proxy:
+    external: true
