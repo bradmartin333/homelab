@@ -1,0 +1,28 @@
+services:
+  postgres:
+    image: postgres:18
+    container_name: postgres
+    restart: unless-stopped
+    env_file: .env
+    shm_size: 256mb
+    stop_grace_period: 1m
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=pg_stat_statements
+      - -c
+      - pg_stat_statements.track=all
+    volumes:
+      - /srv/docker-data/postgres:/var/lib/postgresql
+    networks:
+      - db_internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+networks:
+  db_internal:
+    external: true

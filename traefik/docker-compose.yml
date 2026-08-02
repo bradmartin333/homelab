@@ -1,0 +1,21 @@
+services:
+  traefik:
+    image: traefik:v3.7
+    container_name: traefik
+    restart: unless-stopped
+    env_file: .env
+    security_opt: [no-new-privileges:true]
+    ports:
+      - "192.168.1.69:80:80"
+      - "192.168.1.69:443:443"
+    networks:
+      - proxy
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./dynamic:/etc/traefik/dynamic:ro
+      - /srv/docker-data/traefik/letsencrypt:/letsencrypt
+
+networks:
+  proxy:
+    external: true

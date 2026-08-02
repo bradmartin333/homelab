@@ -1,0 +1,18 @@
+http:
+  middlewares:
+    secure-headers:
+      headers:
+        frameDeny: true
+        contentTypeNosniff: true
+        browserXssFilter: true
+        referrerPolicy: "strict-origin-when-cross-origin"
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+
+    rate-limit:
+      rateLimit:
+        average: 100
+        burst: 50
+        sourceCriterion:
+          ipStrategy:
+            depth: 1
