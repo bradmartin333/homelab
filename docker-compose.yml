@@ -3,3 +3,4 @@ include:
   - postgres/docker-compose.yml
   - vikunja/docker-compose.yml
   - cloudflared/docker-compose.yml
+  - immich/docker-compose.yml
