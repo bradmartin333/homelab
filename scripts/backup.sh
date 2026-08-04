@@ -19,6 +19,8 @@ chmod 700 "$STAGING"
 # replace last night's good one with a truncated file.
 docker exec postgres pg_dumpall -U "$PGUSER" > "$STAGING/pg_dumpall.sql.tmp"
 mv "$STAGING/pg_dumpall.sql.tmp" "$STAGING/pg_dumpall.sql"
+docker exec immich-postgres pg_dumpall -U immich > "$STAGING/immich_pg_dumpall.sql.tmp"
+mv "$STAGING/immich_pg_dumpall.sql.tmp" "$STAGING/immich_pg_dumpall.sql"
 
 restic -r "$LOCAL_REPO" --password-file "$PASSFILE" backup --tag nightly "${SOURCES[@]}"
 restic -r "$LOCAL_REPO" --password-file "$PASSFILE" forget --tag nightly \
