@@ -4,6 +4,11 @@ set -uo pipefail
 
 REPO_DIR="${HOMELAB_DIR:-/opt/homelab}"
 
+if [ "$EUID" -ne 0 ]; then
+  echo "error: run this with sudo — mdadm, smartctl, and restic all need root" >&2
+  exit 1
+fi
+
 if [ -f "$REPO_DIR/.env" ]; then
   # shellcheck disable=SC1091
   source "$REPO_DIR/.env"
@@ -64,7 +69,10 @@ fi
 echo; echo "BACKUPS"
 code=$(systemctl show homelab-backup.service -p ExecMainStatus --value)
 when=$(systemctl show homelab-backup.service -p ExecMainExitTimestamp --value)
-[ "$code" = "0" ] && ok "last run clean — $when" || bad "last run exit=$code — $when"
+if   [ -z "$when" ];  then warn "homelab-backup.service has never run — check: systemctl list-timers | grep homelab-backup"
+elif [ "$code" = "0" ]; then ok "last run clean — $when"
+else                        bad "last run exit=$code — $when"
+fi
 restic -r "$LOCAL_REPO" --password-file "$PASSFILE" snapshots --latest 1 2>/dev/null | tail -2 \
   || bad "cannot read local repository"
 
