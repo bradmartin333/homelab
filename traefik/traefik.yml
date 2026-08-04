@@ -22,7 +22,7 @@ entryPoints:
 certificatesResolvers:
   cloudflare:
     acme:
-      email: bradmartin333@gmail.com
+      # email is set via ACME_EMAIL in traefik/docker-compose.yml
       storage: /letsencrypt/acme.json
       dnsChallenge:
         provider: cloudflare

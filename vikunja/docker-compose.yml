@@ -6,7 +6,7 @@ services:
     env_file: .env
     security_opt: [no-new-privileges:true]
     environment:
-      VIKUNJA_SERVICE_PUBLICURL: "https://tasks.coblab.net/"
+      VIKUNJA_SERVICE_PUBLICURL: "https://${VIKUNJA_DOMAIN}/"
       VIKUNJA_SERVICE_SECRET: "${VIKUNJA_SERVICE_SECRET}"
       VIKUNJA_SERVICE_ENABLEREGISTRATION: "false"
       VIKUNJA_SERVICE_TIMEZONE: "America/New_York"
@@ -24,7 +24,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=proxy"
-      - "traefik.http.routers.vikunja.rule=Host(`tasks.coblab.net`)"
+      - "traefik.http.routers.vikunja.rule=Host(`${VIKUNJA_DOMAIN}`)"
       - "traefik.http.routers.vikunja.entrypoints=websecure"
       - "traefik.http.routers.vikunja.tls=true"
       - "traefik.http.routers.vikunja.tls.certresolver=cloudflare"

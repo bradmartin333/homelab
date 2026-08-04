@@ -23,7 +23,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=proxy"
-      - "traefik.http.routers.immich.rule=Host(`photos.coblab.net`)"
+      - "traefik.http.routers.immich.rule=Host(`${IMMICH_DOMAIN}`)"
       - "traefik.http.routers.immich.entrypoints=websecure"
       - "traefik.http.routers.immich.tls=true"
       - "traefik.http.routers.immich.tls.certresolver=cloudflare"

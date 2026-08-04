@@ -2,7 +2,7 @@
 # homelab-secrets.sh — encrypt/decrypt sops secrets and commit/push /opt/homelab
 #
 # Drop this on the homelab box (e.g. /opt/homelab/scripts/homelab-secrets.sh)
-# and run it from there. Wraps the commands from README.md Phase 8.6.
+# and run it from there.
 #
 # Usage:
 #   homelab-secrets.sh commit ["message"]   Re-encrypt changed .env files, then commit and push
@@ -71,7 +71,7 @@ cmd_commit() {
 
   git add -A
 
-  # Same check README.md 8.5 asks you to run by hand before every push.
+  # Refuse to push a plaintext .env even if it slipped past encrypt_secrets.
   if git diff --cached --name-only | grep -qE '(^|/)\.env$'; then
     echo "error: refusing to commit — a plaintext .env file is staged:" >&2
     git diff --cached --name-only | grep -E '(^|/)\.env$' >&2
