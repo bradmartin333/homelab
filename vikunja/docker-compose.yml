@@ -1,0 +1,39 @@
+services:
+  vikunja:
+    image: vikunja/vikunja:2.4
+    container_name: vikunja
+    restart: unless-stopped
+    env_file: .env
+    security_opt: [no-new-privileges:true]
+    environment:
+      VIKUNJA_SERVICE_PUBLICURL: "https://${VIKUNJA_DOMAIN}/"
+      VIKUNJA_SERVICE_SECRET: "${VIKUNJA_SERVICE_SECRET}"
+      VIKUNJA_SERVICE_ENABLEREGISTRATION: "false"
+      VIKUNJA_SERVICE_TIMEZONE: "America/New_York"
+      VIKUNJA_DATABASE_TYPE: postgres
+      VIKUNJA_DATABASE_HOST: postgres
+      VIKUNJA_DATABASE_DATABASE: vikunja
+      VIKUNJA_DATABASE_USER: vikunja
+      VIKUNJA_DATABASE_PASSWORD: "${VIKUNJA_DB_PASSWORD}"
+      VIKUNJA_FILES_MAXSIZE: "20MB"
+    volumes:
+      - /srv/docker-data/vikunja/files:/app/vikunja/files
+    networks:
+      - proxy
+      - db_internal
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.vikunja.rule=Host(`${VIKUNJA_DOMAIN}`)"
+      - "traefik.http.routers.vikunja.entrypoints=websecure"
+      - "traefik.http.routers.vikunja.tls=true"
+      - "traefik.http.routers.vikunja.tls.certresolver=cloudflare"
+      - "traefik.http.routers.vikunja.middlewares=rate-limit@file"
+      - "traefik.http.services.vikunja.loadbalancer.server.port=3456"
+      - "com.centurylinklabs.watchtower.enable=true"
+
+networks:
+  proxy:
+    external: true
+  db_internal:
+    external: true

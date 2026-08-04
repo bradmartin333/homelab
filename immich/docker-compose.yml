@@ -1,0 +1,76 @@
+services:
+  immich-server:
+    image: ghcr.io/immich-app/immich-server:v3.1.0
+    container_name: immich-server
+    restart: unless-stopped
+    env_file: .env
+    security_opt: [no-new-privileges:true]
+    environment:
+      DB_HOSTNAME: immich-postgres
+      DB_USERNAME: "${DB_USERNAME}"
+      DB_PASSWORD: "${DB_PASSWORD}"
+      DB_DATABASE_NAME: "${DB_DATABASE_NAME}"
+      REDIS_HOSTNAME: immich-redis
+    volumes:
+      - "${UPLOAD_LOCATION}:/usr/src/app/upload"
+      - /etc/localtime:/etc/localtime:ro
+    depends_on:
+      - immich-redis
+      - immich-postgres
+    networks:
+      - proxy
+      - immich_internal
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.immich.rule=Host(`${IMMICH_DOMAIN}`)"
+      - "traefik.http.routers.immich.entrypoints=websecure"
+      - "traefik.http.routers.immich.tls=true"
+      - "traefik.http.routers.immich.tls.certresolver=cloudflare"
+      - "traefik.http.routers.immich.middlewares=rate-limit@file"
+      - "traefik.http.services.immich.loadbalancer.server.port=2283"
+      - "com.centurylinklabs.watchtower.enable=true"
+    ports:
+      - "100.115.137.14:2283:2283"
+
+  immich-machine-learning:
+    image: ghcr.io/immich-app/immich-machine-learning:v3.1.0
+    container_name: immich-machine-learning
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    volumes:
+      - model-cache:/cache
+    networks:
+      - immich_internal
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  immich-redis:
+    image: docker.io/valkey/valkey:8-bookworm
+    container_name: immich-redis
+    restart: unless-stopped
+    networks:
+      - immich_internal
+
+  immich-postgres:
+    image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0@sha256:bcf63357191b76a916ae5eb93464d65c07511da41e3bf7a8416db519b40b1c23
+    container_name: immich-postgres
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_USER: "${DB_USERNAME}"
+      POSTGRES_PASSWORD: "${DB_PASSWORD}"
+      POSTGRES_DB: "${DB_DATABASE_NAME}"
+    volumes:
+      - /srv/docker-data/immich/postgres:/var/lib/postgresql/data
+    networks:
+      - immich_internal
+
+networks:
+  proxy:
+    external: true
+  immich_internal:
+
+volumes:
+  model-cache:
+
