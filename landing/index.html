@@ -4,9 +4,26 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>coblab</title>
+  <meta name="description" content="coblab — a personal lab for self-hosted infrastructure, automation, and distributed systems experiments." />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <h1>coblab</h1>
+  <canvas id="net"></canvas>
+  <div class="scanlines" aria-hidden="true"></div>
+
+  <main>
+    <h1 class="glitch" data-text="coblab">coblab</h1>
+    <p class="tagline">
+      self-hosted infrastructure for tooling that allows me to own my data and make my life easier
+    </p>
+    <ul class="chips">
+      <li>task management</li>
+      <li>media</li>
+      <li>analytics</li>
+      <li>experiments</li>
+    </ul>
+  </main>
+
+  <script src="script.js"></script>
 </body>
 </html>
