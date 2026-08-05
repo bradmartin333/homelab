@@ -69,9 +69,9 @@ fi
 echo; echo "BACKUPS"
 code=$(systemctl show homelab-backup.service -p ExecMainStatus --value)
 when=$(systemctl show homelab-backup.service -p ExecMainExitTimestamp --value)
-if   [ -z "$when" ];  then warn "homelab-backup.service has never run — check: systemctl list-timers | grep homelab-backup"
+if   [ -z "$when" ];    then warn "homelab-backup.service has never run — check: systemctl list-timers | grep homelab-backup"
 elif [ "$code" = "0" ]; then ok "last run clean — $when"
-else                        bad "last run exit=$code — $when"
+else                         bad "last run exit=$code — $when"
 fi
 restic -r "$LOCAL_REPO" --password-file "$PASSFILE" snapshots --latest 1 2>/dev/null | tail -2 \
   || bad "cannot read local repository"
