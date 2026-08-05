@@ -1,8 +1,8 @@
 # homelab
 
 TODO
-- backup postgres (maybe others as well) to backblaze
 - grafana dashboards
 - better landing page
-- fix non-admin email login for immich
 - create reminders & docs for maintenance
+- restructure data for SSD2 and backblaze config + postgres backup
+- add remote rPi backup for Immich
