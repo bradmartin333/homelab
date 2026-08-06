@@ -9,8 +9,11 @@ services:
     networks:
       - proxy
     security_opt: [no-new-privileges:true]
-    labels:
-      - "com.centurylinklabs.watchtower.enable=true"
+    # No watchtower label on purpose. Every other watched image is pinned to a
+    # tag, so watchtower can only pull patch-level movement; cloudflared on
+    # :latest could cross a major version unattended at 05:00 with nothing
+    # watching. It updates on an explicit `docker compose pull` instead.
+    # See docs/architecture-migration.md for pinning it to a digest.
 
 networks:
   proxy:
