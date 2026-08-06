@@ -1,6 +1,6 @@
 services:
   vikunja:
-    image: vikunja/vikunja:2.4
+    image: vikunja/vikunja:2.5
     container_name: vikunja
     restart: unless-stopped
     env_file: .env
