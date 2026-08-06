@@ -22,7 +22,6 @@ services:
       - "traefik.http.routers.talkomatic.tls.certresolver=cloudflare"
       - "traefik.http.routers.talkomatic.middlewares=rate-limit@file"
       - "traefik.http.services.talkomatic.loadbalancer.server.port=3000"
-      # git-context build, not a registry image - watchtower has nothing to pull
       - "com.centurylinklabs.watchtower.enable=false"
 
 networks:
