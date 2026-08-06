@@ -14,10 +14,6 @@ services:
     volumes:
       - "${UPLOAD_LOCATION}:/usr/src/app/upload"
       - /etc/localtime:/etc/localtime:ro
-    # Plain depends_on only orders container *start*, not readiness. The
-    # database needs the stronger condition; redis comes up fast enough that
-    # start-order is sufficient, and valkey's CLI name varies by image so a
-    # healthcheck there is more fragile than it's worth.
     depends_on:
       immich-redis:
         condition: service_started
@@ -36,13 +32,6 @@ services:
       - "traefik.http.routers.immich.middlewares=rate-limit@file"
       - "traefik.http.services.immich.loadbalancer.server.port=2283"
       - "com.centurylinklabs.watchtower.enable=true"
-    # Bound to the tailnet address only. Hardcoding it meant a Tailscale
-    # re-auth that changed the IP would fail the container with "cannot assign
-    # requested address"; TAILSCALE_IP lives in immich/.env alongside
-    # UPLOAD_LOCATION. Same pattern as TRAEFIK_BIND_IP.
-    # The :? makes an unset variable a hard error. Plain ${TAILSCALE_IP} would
-    # interpolate to empty and bind ":2283:2283" — every interface on the box —
-    # which is the opposite of what this line is for.
     ports:
       - "${TAILSCALE_IP:?set TAILSCALE_IP in immich/.env}:2283:2283"
 
