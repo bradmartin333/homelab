@@ -1,7 +1,7 @@
 services:
   talkomatic:
     build:
-      context: https://github.com/mohdmahmodi/talkomatic-classic.git#main
+      context: https://github.com/bradmartin333/talkomatic-classic.git#main
     container_name: talkomatic
     restart: unless-stopped
     env_file: .env
