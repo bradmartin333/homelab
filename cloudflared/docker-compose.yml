@@ -9,8 +9,6 @@ services:
     networks:
       - proxy
     security_opt: [no-new-privileges:true]
-    labels:
-      - "com.centurylinklabs.watchtower.enable=true"
 
 networks:
   proxy:

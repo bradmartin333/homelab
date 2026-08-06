@@ -18,6 +18,9 @@ services:
       VIKUNJA_FILES_MAXSIZE: "20MB"
     volumes:
       - /srv/docker-data/vikunja/files:/app/vikunja/files
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - proxy
       - db_internal
