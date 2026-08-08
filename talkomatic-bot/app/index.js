@@ -293,32 +293,42 @@ function handleIncomingChat(payload) {
 
   if (!RELEVANCE_CHECK_ENABLED) return;
   if (checkingUserId && checkingUserId !== userId) return; // already weighing someone else
-  if (Date.now() - lastCheckAt < RELEVANCE_CHECK_COOLDOWN_MS) return;
 
   checkingUserId = userId;
   clearTimeout(checkTimer);
-  checkTimer = setTimeout(() => {
-    const trimmed = text.trim();
-    if (!trimmed) {
+  checkTimer = setTimeout(() => settleThenCheck(userId, username, text), TYPING_SETTLE_MS);
+}
+
+// Runs once the candidate stops typing. If a previous check is still inside
+// its own cooldown, this reschedules rather than dropping the candidate —
+// otherwise a pause that lands inside that cooldown window would never get
+// evaluated at all, since there are no more keystrokes left to retry it.
+function settleThenCheck(userId, username, text) {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    checkingUserId = null;
+    return;
+  }
+  const waitFor = RELEVANCE_CHECK_COOLDOWN_MS - (Date.now() - lastCheckAt);
+  if (waitFor > 0) {
+    checkTimer = setTimeout(() => settleThenCheck(userId, username, text), waitFor);
+    return;
+  }
+  lastCheckAt = Date.now();
+  rememberRecent(username, trimmed);
+  isWorthReplying()
+    .then((worth) => {
       checkingUserId = null;
-      return;
-    }
-    lastCheckAt = Date.now();
-    rememberRecent(username, trimmed);
-    isWorthReplying()
-      .then((worth) => {
-        checkingUserId = null;
-        console.log(`relevance check: ${worth ? "YES" : "NO"} — ${username}: "${trimmed.slice(0, 60)}"`);
-        if (!worth || focusUserId) return; // stale verdict or someone already grabbed focus
-        focusUserId = userId;
-        lastReplyAt = Date.now();
-        replyChain = replyChain.then(() => replyTo(username, trimmed));
-      })
-      .catch((err) => {
-        checkingUserId = null;
-        console.error("relevance check failed:", err.message);
-      });
-  }, TYPING_SETTLE_MS);
+      console.log(`relevance check: ${worth ? "YES" : "NO"} — ${username}: "${trimmed.slice(0, 60)}"`);
+      if (!worth || focusUserId) return; // stale verdict or someone already grabbed focus
+      focusUserId = userId;
+      lastReplyAt = Date.now();
+      replyChain = replyChain.then(() => replyTo(username, trimmed));
+    })
+    .catch((err) => {
+      checkingUserId = null;
+      console.error("relevance check failed:", err.message);
+    });
 }
 
 // ── Socket lifecycle ─────────────────────────────────────────────────────
