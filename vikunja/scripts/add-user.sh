@@ -1,5 +1,5 @@
 #!/bin/bash
-# vikunja-add-user.sh — TUI for provisioning Vikunja accounts with random initial passwords
+# add-user.sh — TUI for provisioning Vikunja accounts with random initial passwords
 #
 # Once registration is closed, this is how you hand out new accounts: it runs
 # `vikunja user create` inside the container and generates a random one-time
