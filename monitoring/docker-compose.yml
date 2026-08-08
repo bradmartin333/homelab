@@ -33,6 +33,8 @@ services:
       - monitoring_internal
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
+    ports:
+      - "${TAILSCALE_IP:?set TAILSCALE_IP in monitoring/.env}:9090:9090"
 
   node-exporter:
     image: prom/node-exporter:latest
