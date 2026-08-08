@@ -72,8 +72,16 @@ async function fetchBotToken() {
   return botToken;
 }
 
+// setTimeout delays are a 32-bit signed int (~24.8 days); tokens can live
+// longer than that, so cap each leg and re-arm until we're close to expiry.
+const MAX_TIMEOUT_MS = 2_000_000_000;
+
 function scheduleTokenRefresh() {
   const refreshIn = Math.max(tokenExpiresAt - Date.now() - 5 * 60 * 1000, 60 * 1000);
+  if (refreshIn > MAX_TIMEOUT_MS) {
+    setTimeout(scheduleTokenRefresh, MAX_TIMEOUT_MS).unref();
+    return;
+  }
   setTimeout(() => {
     fetchBotToken().catch((err) => console.error("token refresh failed:", err.message));
   }, refreshIn).unref();
