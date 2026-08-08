@@ -174,6 +174,7 @@ async function start() {
 
   socket = io(TALKOMATIC_URL, {
     auth: { token: botToken },
+    transports: ["websocket"],
     reconnection: true,
     reconnectionDelay: 1000,
     reconnectionDelayMax: 5000,
@@ -183,6 +184,10 @@ async function start() {
     console.log("connected, signing in");
     healthy = false;
     socket.emit("join lobby", { username: BOT_USERNAME, location: BOT_LOCATION });
+  });
+
+  socket.on("connect_error", (err) => {
+    console.error("connect error:", err.message);
   });
 
   socket.on("signin status", (data) => {
