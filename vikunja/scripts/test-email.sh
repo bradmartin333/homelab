@@ -3,7 +3,7 @@
 #
 #
 # Usage:
-#   scripts/test-email.sh
+#   scripts/test-email.sh <email-address>
 #
 # Override the container name with VIKUNJA_CONTAINER (default: vikunja).
 
@@ -12,6 +12,12 @@ set -uo pipefail
 # --- Configuration ---
 VIKUNJA_CONTAINER="${VIKUNJA_CONTAINER:-vikunja}"
 VIKUNJA_BINARY="/app/vikunja/vikunja"
+TEST_EMAIL="${1:-}"
+
+if [ -z "$TEST_EMAIL" ]; then
+    echo "Usage: $0 <email-address>"
+    exit 1
+fi
 
 # Check if the Vikunja container is running
 if ! docker ps --format '{{.Names}}' | grep -q "^${VIKUNJA_CONTAINER}$"; then
@@ -19,4 +25,4 @@ if ! docker ps --format '{{.Names}}' | grep -q "^${VIKUNJA_CONTAINER}$"; then
     exit 1
 fi
 
-docker exec -i "$VIKUNJA_CONTAINER" "$VIKUNJA_BINARY" testemail
+docker exec -i "$VIKUNJA_CONTAINER" "$VIKUNJA_BINARY" testmail "$TEST_EMAIL"
