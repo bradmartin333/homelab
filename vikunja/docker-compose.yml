@@ -37,7 +37,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=proxy"
-      - "traefik.http.routers.vikunja.rule=Host(`${VIKUNJA_DOMAIN}`)"
+      - "traefik.http.routers.vikunja.rule=Host(`${VIKUNJA_DOMAIN}`) && !PathPrefix(`/api/v1/metrics`)"
       - "traefik.http.routers.vikunja.entrypoints=websecure"
       - "traefik.http.routers.vikunja.tls=true"
       - "traefik.http.routers.vikunja.tls.certresolver=cloudflare"
