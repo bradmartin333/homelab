@@ -1,0 +1,29 @@
+services:
+  talkomatic:
+    build:
+      context: https://github.com/bradmartin333/talkomatic-classic.git#main
+    container_name: talkomatic
+    restart: unless-stopped
+    env_file: .env
+    security_opt: [no-new-privileges:true]
+    environment:
+      ALLOWED_ORIGINS: "https://${TALKOMATIC_DOMAIN}"
+      TRUST_PROXY: "1"
+    volumes:
+      - /srv/docker-data/talkomatic:/app/data
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.talkomatic.rule=Host(`${TALKOMATIC_DOMAIN}`)"
+      - "traefik.http.routers.talkomatic.entrypoints=websecure"
+      - "traefik.http.routers.talkomatic.tls=true"
+      - "traefik.http.routers.talkomatic.tls.certresolver=cloudflare"
+      - "traefik.http.routers.talkomatic.middlewares=rate-limit@file"
+      - "traefik.http.services.talkomatic.loadbalancer.server.port=3000"
+      - "com.centurylinklabs.watchtower.enable=false"
+
+networks:
+  proxy:
+    external: true
