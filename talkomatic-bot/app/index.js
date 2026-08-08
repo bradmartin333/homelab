@@ -184,6 +184,9 @@ async function start() {
     reconnection: true,
     reconnectionDelay: 1000,
     reconnectionDelayMax: 5000,
+    // The server infers a cosmetic device icon from this header; matching
+    // its "bot" regex gets the robot icon instead of the "unknown" one.
+    extraHeaders: { "User-Agent": "talkobot" },
   });
 
   socket.on("connect", () => {
