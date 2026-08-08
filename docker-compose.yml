@@ -4,4 +4,5 @@ include:
   - vikunja/docker-compose.yml
   - cloudflared/docker-compose.yml
   - immich/docker-compose.yml
+  - talkomatic/docker-compose.yml
   - watchtower/docker-compose.yml
