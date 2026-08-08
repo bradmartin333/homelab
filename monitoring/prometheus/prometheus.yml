@@ -1,0 +1,52 @@
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: traefik
+    static_configs:
+      - targets: ["traefik:8082"]
+
+  - job_name: cloudflared
+    static_configs:
+      - targets: ["cloudflared:20241"]
+
+  - job_name: immich-api
+    static_configs:
+      - targets: ["immich-server:8081"]
+
+  - job_name: immich-microservices
+    static_configs:
+      - targets: ["immich-server:8082"]
+
+  - job_name: vikunja
+    metrics_path: /api/v1/metrics
+    static_configs:
+      - targets: ["vikunja:3456"]
+
+  - job_name: watchtower
+    metrics_path: /v1/metrics
+    authorization:
+      credentials: b54c8dd5dbbfd4cdcaa58e3f8a6a0aea
+    static_configs:
+      - targets: ["watchtower:8080"]
+
+  - job_name: node-exporter
+    static_configs:
+      - targets: ["node-exporter:9100"]
+
+  - job_name: cadvisor
+    static_configs:
+      - targets: ["cadvisor:8080"]
+
+  - job_name: postgres
+    static_configs:
+      - targets: ["postgres-exporter:9187"]
+
+  - job_name: immich-postgres
+    static_configs:
+      - targets: ["immich-postgres-exporter:9187"]

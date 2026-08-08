@@ -11,6 +11,7 @@ services:
       DB_PASSWORD: "${DB_PASSWORD}"
       DB_DATABASE_NAME: "${DB_DATABASE_NAME}"
       REDIS_HOSTNAME: immich-redis
+      IMMICH_TELEMETRY_INCLUDE: all
     volumes:
       - "${UPLOAD_LOCATION}:/usr/src/app/upload"
       - /etc/localtime:/etc/localtime:ro

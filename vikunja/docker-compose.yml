@@ -16,7 +16,6 @@ services:
       VIKUNJA_DATABASE_USER: vikunja
       VIKUNJA_DATABASE_PASSWORD: "${VIKUNJA_DB_PASSWORD}"
       VIKUNJA_FILES_MAXSIZE: "20MB"
-      # Mail settings: https://vikunja.io/docs/config-options/#mailer
       VIKUNJA_MAILER_ENABLED: "true"
       VIKUNJA_MAILER_HOST: "smtp.gmail.com"
       VIKUNJA_MAILER_PORT: "587"
@@ -26,6 +25,7 @@ services:
       VIKUNJA_MAILER_FORCESSL: "false"
       VIKUNJA_MAILER_FROMEMAIL: "${VIKUNJA_MAILER_USERNAME}"
       VIKUNJA_SERVICE_ENABLEEMAILREMINDERS: "true"
+      VIKUNJA_METRICS_ENABLED: "true"
     volumes:
       - /srv/docker-data/vikunja/files:/app/vikunja/files
     depends_on:
@@ -37,7 +37,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=proxy"
-      - "traefik.http.routers.vikunja.rule=Host(`${VIKUNJA_DOMAIN}`)"
+      - "traefik.http.routers.vikunja.rule=Host(`${VIKUNJA_DOMAIN}`) && !PathPrefix(`/api/v1/metrics`)"
       - "traefik.http.routers.vikunja.entrypoints=websecure"
       - "traefik.http.routers.vikunja.tls=true"
       - "traefik.http.routers.vikunja.tls.certresolver=cloudflare"
