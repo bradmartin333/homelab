@@ -16,7 +16,6 @@ services:
       VIKUNJA_DATABASE_USER: vikunja
       VIKUNJA_DATABASE_PASSWORD: "${VIKUNJA_DB_PASSWORD}"
       VIKUNJA_FILES_MAXSIZE: "20MB"
-      # Mail settings: https://vikunja.io/docs/config-options/#mailer
       VIKUNJA_MAILER_ENABLED: "true"
       VIKUNJA_MAILER_HOST: "smtp.gmail.com"
       VIKUNJA_MAILER_PORT: "587"
@@ -26,8 +25,6 @@ services:
       VIKUNJA_MAILER_FORCESSL: "false"
       VIKUNJA_MAILER_FROMEMAIL: "${VIKUNJA_MAILER_USERNAME}"
       VIKUNJA_SERVICE_ENABLEEMAILREMINDERS: "true"
-      # Only reachable over the internal `proxy` docker network (never
-      # published to the host), so no metrics auth needed - see monitoring/.
       VIKUNJA_METRICS_ENABLED: "true"
     volumes:
       - /srv/docker-data/vikunja/files:/app/vikunja/files

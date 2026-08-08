@@ -30,8 +30,6 @@ scrape_configs:
 
   - job_name: watchtower
     metrics_path: /v1/metrics
-    # Not a real secret — see the note above WATCHTOWER_HTTP_API_TOKEN in
-    # watchtower/docker-compose.yml. Must match that value.
     authorization:
       credentials: b54c8dd5dbbfd4cdcaa58e3f8a6a0aea
     static_configs:
