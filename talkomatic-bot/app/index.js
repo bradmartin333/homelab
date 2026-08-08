@@ -59,6 +59,18 @@ let lastCheckAt = 0;
 const history = []; // shared room context: {role, content}
 let replyChain = Promise.resolve(); // serializes outbound replies
 
+// Raw room chatter fed to the relevance check, distinct from `history`
+// (which only fills from exchanges the bot actually replied to — empty
+// or thin in a busy multi-user room, which starves the classifier of the
+// context it needs to judge whether something is worth a reply).
+const recentMessages = [];
+const MAX_RECENT = 12;
+
+function rememberRecent(username, text) {
+  recentMessages.push({ role: "user", content: `${username}: ${text}` });
+  if (recentMessages.length > MAX_RECENT) recentMessages.shift();
+}
+
 // ── Health endpoint ──────────────────────────────────────────────────────
 
 http
@@ -218,18 +230,19 @@ function matchesTrigger(text) {
 // Second gate for messages that don't name the bot: ask Claude whether a
 // laid-back regular would actually jump in here. Biased toward NO so quiet
 // small talk between other people doesn't get interrupted.
-async function isWorthReplying(username, text) {
+async function isWorthReplying() {
   try {
     const response = await anthropic.messages.create({
       model: CLAUDE_MODEL,
       max_tokens: 4,
       system:
         "You are judging whether a laid-back regular in a group chat should jump into the " +
-        "conversation right now, without being addressed directly. Reply with exactly one " +
-        "word: YES if the latest message is interesting, funny, or genuinely invites a " +
-        "reply from anyone nearby; NO if it's mundane, a private exchange between others, " +
-        "or doesn't call for a response. Bias toward NO.",
-      messages: [...history, { role: "user", content: `${username}: ${text}` }],
+        "conversation right now, without being addressed directly. Weigh the whole recent " +
+        "conversation, not just the last line. Reply with exactly one word: YES if the " +
+        "conversation is interesting, funny, or genuinely invites a reply from anyone " +
+        "nearby; NO if it's mundane, a private exchange between others, or doesn't call " +
+        "for a response. Bias toward NO when unsure.",
+      messages: recentMessages,
     });
     const verdict = response.content
       .filter((block) => block.type === "text")
@@ -250,6 +263,7 @@ function settleThenReply(userId, username, text) {
     focusUserId = null;
     const trimmed = text.trim();
     if (!trimmed) return;
+    rememberRecent(username, trimmed);
     lastReplyAt = Date.now();
     replyChain = replyChain.then(() => replyTo(username, trimmed));
   }, TYPING_SETTLE_MS);
@@ -290,9 +304,11 @@ function handleIncomingChat(payload) {
       return;
     }
     lastCheckAt = Date.now();
-    isWorthReplying(username, trimmed)
+    rememberRecent(username, trimmed);
+    isWorthReplying()
       .then((worth) => {
         checkingUserId = null;
+        console.log(`relevance check: ${worth ? "YES" : "NO"} — ${username}: "${trimmed.slice(0, 60)}"`);
         if (!worth || focusUserId) return; // stale verdict or someone already grabbed focus
         focusUserId = userId;
         lastReplyAt = Date.now();
