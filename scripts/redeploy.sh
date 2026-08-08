@@ -34,5 +34,9 @@ docker compose up -d --remove-orphans
 echo "==> forcing talkomatic and talkomatic-bot to pick up the new builds"
 docker compose up -d --force-recreate talkomatic talkomatic-bot
 
+echo "==> pruning dangling images and build cache"
+docker image prune -f
+docker builder prune -f
+
 echo "==> status"
 docker compose ps
