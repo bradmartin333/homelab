@@ -81,13 +81,49 @@ async function fetchBotToken() {
   const res = await fetch(`${TALKOMATIC_URL}/api/v1/bot-tokens/request`, {
     method: "POST",
   });
-  if (!res.ok) throw new Error(`bot-token request failed: ${res.status}`);
+  if (!res.ok) {
+    const err = new Error(`bot-token request failed: ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
   const data = await res.json();
   botToken = data.token;
   tokenExpiresAt = Date.parse(data.expiresAt) || Date.now() + Number(data.expiresIn || 0);
   console.log(`bot token acquired, expires ${new Date(tokenExpiresAt).toISOString()}`);
   scheduleTokenRefresh();
   return botToken;
+}
+
+// The talkomatic server allows only 3 bot-token requests per IP per hour,
+// then blocks that IP for a full hour (server/security.js botTokenRequest
+// limiter) — so a 429 here means "stop asking for a while," not "retry
+// harder." Never let this exit the process: process.exit(1) would make
+// Docker's restart policy hammer the same rate-limited endpoint in a loop.
+const TOKEN_RATE_LIMIT_RETRY_MS = Number(process.env.TOKEN_RATE_LIMIT_RETRY_MS || 20 * 60 * 1000);
+const TOKEN_RETRY_BACKOFF_MS = Number(process.env.TOKEN_RETRY_BACKOFF_MS || 30 * 1000);
+const TOKEN_RETRY_MAX_MS = Number(process.env.TOKEN_RETRY_MAX_MS || 5 * 60 * 1000);
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms).unref());
+}
+
+async function fetchBotTokenWithRetry() {
+  let attempt = 0;
+  for (;;) {
+    try {
+      return await fetchBotToken();
+    } catch (err) {
+      attempt++;
+      const delay =
+        err.status === 429
+          ? TOKEN_RATE_LIMIT_RETRY_MS
+          : Math.min(TOKEN_RETRY_BACKOFF_MS * 2 ** (attempt - 1), TOKEN_RETRY_MAX_MS);
+      console.error(
+        `bot token fetch failed (attempt ${attempt}): ${err.message}. retrying in ${Math.round(delay / 1000)}s`,
+      );
+      await sleep(delay);
+    }
+  }
 }
 
 // setTimeout delays are a 32-bit signed int (~24.8 days); tokens can live
@@ -101,7 +137,7 @@ function scheduleTokenRefresh() {
     return;
   }
   setTimeout(() => {
-    fetchBotToken().catch((err) => console.error("token refresh failed:", err.message));
+    fetchBotTokenWithRetry().catch((err) => console.error("token refresh failed:", err.message));
   }, refreshIn).unref();
 }
 
@@ -272,7 +308,7 @@ function handleIncomingChat(payload) {
 // ── Socket lifecycle ─────────────────────────────────────────────────────
 
 async function start() {
-  await fetchBotToken();
+  await fetchBotTokenWithRetry();
 
   socket = io(TALKOMATIC_URL, {
     auth: { token: botToken },
