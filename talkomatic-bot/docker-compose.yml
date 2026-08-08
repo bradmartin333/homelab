@@ -1,0 +1,26 @@
+services:
+  talkomatic-bot:
+    build:
+      context: ./app
+    container_name: talkomatic-bot
+    restart: unless-stopped
+    env_file: .env
+    security_opt: [no-new-privileges:true]
+    environment:
+      TALKOMATIC_URL: "http://talkomatic:3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:8080/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      - talkomatic
+    networks:
+      - proxy
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
+
+networks:
+  proxy:
+    external: true
