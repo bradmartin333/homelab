@@ -5,7 +5,7 @@ const { io } = require("socket.io-client");
 const Anthropic = require("@anthropic-ai/sdk");
 
 const TALKOMATIC_URL = process.env.TALKOMATIC_URL || "http://talkomatic:3000";
-const BOT_USERNAME = process.env.BOT_USERNAME || "Companion";
+const BOT_USERNAME = process.env.BOT_USERNAME || "Mr. Roboto";
 const BOT_LOCATION = process.env.BOT_LOCATION || "The Cloud";
 const ROOM_NAME = process.env.ROOM_NAME || "Talkomatic";
 const CLAUDE_MODEL = process.env.CLAUDE_MODEL || "claude-haiku-4-5-20251001";
@@ -15,10 +15,16 @@ const TALKOMATIC_API_KEY =
 const HEALTH_PORT = Number(process.env.HEALTH_PORT || 8080);
 const TYPING_SETTLE_MS = Number(process.env.TYPING_SETTLE_MS || 2000); // let the focused user finish typing
 const REPLY_COOLDOWN_MS = Number(process.env.REPLY_COOLDOWN_MS || 20000); // min gap between bot replies
-const TRIGGER_WORDS = (process.env.BOT_TRIGGER_WORDS || `${BOT_USERNAME},bot`)
+const DEFAULT_TRIGGERS = [BOT_USERNAME, BOT_USERNAME.split(/\s+/).pop(), "bot"];
+const TRIGGER_WORDS = (process.env.BOT_TRIGGER_WORDS || DEFAULT_TRIGGERS.join(","))
   .split(",")
   .map((w) => w.trim().toLowerCase())
   .filter(Boolean);
+// Non-trigger messages can still earn a reply via a cheap LLM relevance
+// check. RELEVANCE_CHECK_COOLDOWN_MS bounds how often that check itself
+// runs, separate from REPLY_COOLDOWN_MS which bounds actual replies.
+const RELEVANCE_CHECK_ENABLED = process.env.LLM_RELEVANCE_CHECK !== "false";
+const RELEVANCE_CHECK_COOLDOWN_MS = Number(process.env.RELEVANCE_CHECK_COOLDOWN_MS || 5000);
 const MAX_REPLY_CHARS = 480; // well under the server's 5000 message cap
 const MAX_HISTORY = 16; // turns of room context kept for Claude
 
@@ -47,6 +53,9 @@ let roomId = null;
 let focusUserId = null; // the one user we're currently paying attention to
 let focusTimer = null;
 let lastReplyAt = 0;
+let checkingUserId = null; // candidate awaiting an LLM relevance verdict
+let checkTimer = null;
+let lastCheckAt = 0;
 const history = []; // shared room context: {role, content}
 let replyChain = Promise.resolve(); // serializes outbound replies
 
@@ -160,14 +169,54 @@ async function replyTo(username, text) {
   socket.emit("chat update", { diff: { type: "full-replace", text: reply } });
 }
 
-// Decides whether a message is worth chiming in on. Swap this out (or add a
-// second gate) to try relevance-scoring or idle-window sampling later.
+// Cheap, deterministic first gate: does the message call out to the bot by
+// name? Swap or extend this for other cheap heuristics later.
 function matchesTrigger(text) {
   const lower = text.toLowerCase();
   return TRIGGER_WORDS.some((word) => {
     const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     return new RegExp(`\\b${escaped}\\b`).test(lower);
   });
+}
+
+// Second gate for messages that don't name the bot: ask Claude whether a
+// laid-back regular would actually jump in here. Biased toward NO so quiet
+// small talk between other people doesn't get interrupted.
+async function isWorthReplying(username, text) {
+  try {
+    const response = await anthropic.messages.create({
+      model: CLAUDE_MODEL,
+      max_tokens: 4,
+      system:
+        "You are judging whether a laid-back regular in a group chat should jump into the " +
+        "conversation right now, without being addressed directly. Reply with exactly one " +
+        "word: YES if the latest message is interesting, funny, or genuinely invites a " +
+        "reply from anyone nearby; NO if it's mundane, a private exchange between others, " +
+        "or doesn't call for a response. Bias toward NO.",
+      messages: [...history, { role: "user", content: `${username}: ${text}` }],
+    });
+    const verdict = response.content
+      .filter((block) => block.type === "text")
+      .map((block) => block.text)
+      .join("")
+      .trim()
+      .toUpperCase();
+    return verdict.startsWith("YES");
+  } catch (err) {
+    console.error("relevance check error:", err.message);
+    return false;
+  }
+}
+
+function settleThenReply(userId, username, text) {
+  clearTimeout(focusTimer);
+  focusTimer = setTimeout(() => {
+    focusUserId = null;
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    lastReplyAt = Date.now();
+    replyChain = replyChain.then(() => replyTo(username, trimmed));
+  }, TYPING_SETTLE_MS);
 }
 
 function handleIncomingChat(payload) {
@@ -178,19 +227,45 @@ function handleIncomingChat(payload) {
 
   if (focusUserId) {
     if (focusUserId !== userId) return; // already paying attention to someone else
-  } else {
-    if (Date.now() - lastReplyAt < REPLY_COOLDOWN_MS) return; // just spoke, let the room breathe
-    if (!matchesTrigger(text)) return; // nothing calling for our attention
-    focusUserId = userId;
+    settleThenReply(userId, username, text);
+    return;
   }
 
-  clearTimeout(focusTimer);
-  focusTimer = setTimeout(() => {
-    focusUserId = null;
+  if (Date.now() - lastReplyAt < REPLY_COOLDOWN_MS) return; // just spoke, let the room breathe
+
+  if (matchesTrigger(text)) {
+    clearTimeout(checkTimer);
+    checkingUserId = null;
+    focusUserId = userId;
+    settleThenReply(userId, username, text);
+    return;
+  }
+
+  if (!RELEVANCE_CHECK_ENABLED) return;
+  if (checkingUserId && checkingUserId !== userId) return; // already weighing someone else
+  if (Date.now() - lastCheckAt < RELEVANCE_CHECK_COOLDOWN_MS) return;
+
+  checkingUserId = userId;
+  clearTimeout(checkTimer);
+  checkTimer = setTimeout(() => {
     const trimmed = text.trim();
-    if (!trimmed) return;
-    lastReplyAt = Date.now();
-    replyChain = replyChain.then(() => replyTo(username, trimmed));
+    if (!trimmed) {
+      checkingUserId = null;
+      return;
+    }
+    lastCheckAt = Date.now();
+    isWorthReplying(username, trimmed)
+      .then((worth) => {
+        checkingUserId = null;
+        if (!worth || focusUserId) return; // stale verdict or someone already grabbed focus
+        focusUserId = userId;
+        lastReplyAt = Date.now();
+        replyChain = replyChain.then(() => replyTo(username, trimmed));
+      })
+      .catch((err) => {
+        checkingUserId = null;
+        console.error("relevance check failed:", err.message);
+      });
   }, TYPING_SETTLE_MS);
 }
 
