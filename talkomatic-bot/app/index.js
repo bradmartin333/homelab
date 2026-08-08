@@ -9,6 +9,9 @@ const BOT_USERNAME = process.env.BOT_USERNAME || "Companion";
 const BOT_LOCATION = process.env.BOT_LOCATION || "The Cloud";
 const ROOM_NAME = process.env.ROOM_NAME || "Talkomatic";
 const CLAUDE_MODEL = process.env.CLAUDE_MODEL || "claude-haiku-4-5-20251001";
+const TALKOMATIC_API_KEY =
+  process.env.TALKOMATIC_API_KEY ||
+  "tK_public_key_4f8a9b2c7d6e3f1a5g8h9i0j4k5l6m7n8o9p";
 const HEALTH_PORT = Number(process.env.HEALTH_PORT || 8080);
 const DEBOUNCE_MS = Number(process.env.DEBOUNCE_MS || 2000);
 const MAX_REPLY_CHARS = 480; // well under the server's 5000 message cap
@@ -90,7 +93,10 @@ function scheduleTokenRefresh() {
 // ── Room claiming ────────────────────────────────────────────────────────
 
 async function claimRoom() {
-  const headers = { Authorization: `Bearer ${botToken}` };
+  const headers = {
+    Authorization: `Bearer ${botToken}`,
+    "x-api-key": TALKOMATIC_API_KEY,
+  };
   const res = await fetch(`${TALKOMATIC_URL}/api/v1/rooms`, { headers });
   if (!res.ok) throw new Error(`list rooms failed: ${res.status}`);
   const rooms = await res.json();
