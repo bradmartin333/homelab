@@ -52,6 +52,8 @@ let roomId = null;
 
 let focusUserId = null; // the one user we're currently paying attention to
 let focusTimer = null;
+let botHasText = false; // whether the bot currently has visible chat text on screen
+let repliedToUserId = null; // who our current on-screen text is addressed to
 let lastReplyAt = 0;
 let checkingUserId = null; // candidate awaiting an LLM relevance verdict
 let checkTimer = null;
@@ -190,7 +192,7 @@ function rememberTurn(role, content) {
   if (history.length > MAX_HISTORY) history.shift();
 }
 
-async function replyTo(username, text) {
+async function replyTo(userId, username, text) {
   rememberTurn("user", `${username}: ${text}`);
 
   let reply;
@@ -215,6 +217,22 @@ async function replyTo(username, text) {
 
   rememberTurn("assistant", reply);
   socket.emit("chat update", { diff: { type: "full-replace", text: reply } });
+  botHasText = true;
+  repliedToUserId = userId;
+}
+
+function resetFocus() {
+  clearTimeout(focusTimer);
+  clearTimeout(checkTimer);
+  focusUserId = null;
+  checkingUserId = null;
+}
+
+function clearBotText() {
+  repliedToUserId = null;
+  if (!botHasText) return;
+  botHasText = false;
+  socket.emit("chat update", { diff: { type: "full-replace", text: "" } });
 }
 
 // Cheap, deterministic first gate: does the message call out to the bot by
@@ -265,7 +283,7 @@ function settleThenReply(userId, username, text) {
     if (!trimmed) return;
     rememberRecent(username, trimmed);
     lastReplyAt = Date.now();
-    replyChain = replyChain.then(() => replyTo(username, trimmed));
+    replyChain = replyChain.then(() => replyTo(userId, username, trimmed));
   }, TYPING_SETTLE_MS);
 }
 
@@ -323,7 +341,7 @@ function settleThenCheck(userId, username, text) {
       if (!worth || focusUserId) return; // stale verdict or someone already grabbed focus
       focusUserId = userId;
       lastReplyAt = Date.now();
-      replyChain = replyChain.then(() => replyTo(username, trimmed));
+      replyChain = replyChain.then(() => replyTo(userId, username, trimmed));
     })
     .catch((err) => {
       checkingUserId = null;
@@ -370,6 +388,24 @@ async function start() {
   });
 
   socket.on("chat update", handleIncomingChat);
+
+  // Full room snapshot on every join/leave. Clear our own text once we're
+  // the only one left — nobody's around to read it anymore.
+  socket.on("room update", (room) => {
+    if (!room || !Array.isArray(room.users)) return;
+    const othersPresent = room.users.some((u) => u.id !== botUserId);
+    if (!othersPresent) {
+      resetFocus();
+      clearBotText();
+    }
+  });
+
+  // If the user we just replied to (or are mid-reply to) leaves, our text
+  // is now a response to nobody — clear it rather than leave it stranded.
+  socket.on("user left", (leftUserId) => {
+    if (leftUserId === focusUserId) resetFocus();
+    if (leftUserId === focusUserId || leftUserId === repliedToUserId) clearBotText();
+  });
 
   socket.on("afk warning", () => {
     console.warn("unexpected afk warning — is the isBot AFK bypass deployed?");
