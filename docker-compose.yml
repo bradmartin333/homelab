@@ -6,3 +6,4 @@ include:
   - immich/docker-compose.yml
   - talkomatic/docker-compose.yml
   - watchtower/docker-compose.yml
+  - monitoring/docker-compose.yml

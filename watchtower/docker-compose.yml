@@ -11,5 +11,17 @@ services:
       WATCHTOWER_SCHEDULE: "0 0 5 * * *"
       WATCHTOWER_TIMEOUT: "60s"
       TZ: "America/New_York"
+      WATCHTOWER_HTTP_API_METRICS: "true"
+      # Not a real secret: this port is only reachable over the internal
+      # `monitoring_internal` docker network, never published to the host.
+      # It exists only because Watchtower's metrics feature requires a token
+      # to enable at all. Must match monitoring/prometheus/prometheus.yml.
+      WATCHTOWER_HTTP_API_TOKEN: "b54c8dd5dbbfd4cdcaa58e3f8a6a0aea"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - monitoring_internal
+
+networks:
+  monitoring_internal:
+    external: true

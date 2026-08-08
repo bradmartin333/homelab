@@ -26,6 +26,9 @@ services:
       VIKUNJA_MAILER_FORCESSL: "false"
       VIKUNJA_MAILER_FROMEMAIL: "${VIKUNJA_MAILER_USERNAME}"
       VIKUNJA_SERVICE_ENABLEEMAILREMINDERS: "true"
+      # Only reachable over the internal `proxy` docker network (never
+      # published to the host), so no metrics auth needed - see monitoring/.
+      VIKUNJA_METRICS_ENABLED: "true"
     volumes:
       - /srv/docker-data/vikunja/files:/app/vikunja/files
     depends_on:
