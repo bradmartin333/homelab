@@ -13,7 +13,12 @@ const TALKOMATIC_API_KEY =
   process.env.TALKOMATIC_API_KEY ||
   "tK_public_key_4f8a9b2c7d6e3f1a5g8h9i0j4k5l6m7n8o9p";
 const HEALTH_PORT = Number(process.env.HEALTH_PORT || 8080);
-const DEBOUNCE_MS = Number(process.env.DEBOUNCE_MS || 2000);
+const TYPING_SETTLE_MS = Number(process.env.TYPING_SETTLE_MS || 2000); // let the focused user finish typing
+const REPLY_COOLDOWN_MS = Number(process.env.REPLY_COOLDOWN_MS || 20000); // min gap between bot replies
+const TRIGGER_WORDS = (process.env.BOT_TRIGGER_WORDS || `${BOT_USERNAME},bot`)
+  .split(",")
+  .map((w) => w.trim().toLowerCase())
+  .filter(Boolean);
 const MAX_REPLY_CHARS = 480; // well under the server's 5000 message cap
 const MAX_HISTORY = 16; // turns of room context kept for Claude
 
@@ -39,8 +44,9 @@ let tokenExpiresAt = 0;
 let socket = null;
 let roomId = null;
 
-const pendingTimers = new Map(); // userId -> Timeout
-const lastHandledText = new Map(); // userId -> string
+let focusUserId = null; // the one user we're currently paying attention to
+let focusTimer = null;
+let lastReplyAt = 0;
 const history = []; // shared room context: {role, content}
 let replyChain = Promise.resolve(); // serializes outbound replies
 
@@ -154,23 +160,38 @@ async function replyTo(username, text) {
   socket.emit("chat update", { diff: { type: "full-replace", text: reply } });
 }
 
+// Decides whether a message is worth chiming in on. Swap this out (or add a
+// second gate) to try relevance-scoring or idle-window sampling later.
+function matchesTrigger(text) {
+  const lower = text.toLowerCase();
+  return TRIGGER_WORDS.some((word) => {
+    const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(`\\b${escaped}\\b`).test(lower);
+  });
+}
+
 function handleIncomingChat(payload) {
   if (!payload || payload.userId === botUserId) return;
   const text = (payload.diff && payload.diff.text) || "";
   const userId = payload.userId;
   const username = payload.username || "someone";
 
-  if (pendingTimers.has(userId)) clearTimeout(pendingTimers.get(userId));
-  pendingTimers.set(
-    userId,
-    setTimeout(() => {
-      pendingTimers.delete(userId);
-      const trimmed = text.trim();
-      if (!trimmed || trimmed === lastHandledText.get(userId)) return;
-      lastHandledText.set(userId, trimmed);
-      replyChain = replyChain.then(() => replyTo(username, trimmed));
-    }, DEBOUNCE_MS),
-  );
+  if (focusUserId) {
+    if (focusUserId !== userId) return; // already paying attention to someone else
+  } else {
+    if (Date.now() - lastReplyAt < REPLY_COOLDOWN_MS) return; // just spoke, let the room breathe
+    if (!matchesTrigger(text)) return; // nothing calling for our attention
+    focusUserId = userId;
+  }
+
+  clearTimeout(focusTimer);
+  focusTimer = setTimeout(() => {
+    focusUserId = null;
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    lastReplyAt = Date.now();
+    replyChain = replyChain.then(() => replyTo(username, trimmed));
+  }, TYPING_SETTLE_MS);
 }
 
 // ── Socket lifecycle ─────────────────────────────────────────────────────
