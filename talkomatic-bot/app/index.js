@@ -355,7 +355,7 @@ async function start() {
   await fetchBotTokenWithRetry();
 
   socket = io(TALKOMATIC_URL, {
-    auth: { token: botToken },
+    auth: (cb) => cb({ token: botToken }),
     transports: ["websocket"],
     reconnection: true,
     reconnectionDelay: 1000,
