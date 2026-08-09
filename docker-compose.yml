@@ -7,3 +7,4 @@ include:
   - talkomatic/docker-compose.yml
   - talkomatic-bot/docker-compose.yml
   - watchtower/docker-compose.yml
+  - monitoring/docker-compose.yml

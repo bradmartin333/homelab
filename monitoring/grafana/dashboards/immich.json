@@ -1,0 +1,62 @@
+{
+  "uid": "immich-homelab",
+  "title": "Immich",
+  "tags": ["homelab", "immich"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "1m",
+  "time": { "from": "now-24h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "Extend this dashboard",
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 0 },
+      "options": {
+        "mode": "markdown",
+        "content": "Immich's monitoring docs (https://docs.immich.app/features/monitoring/) don't publish a fixed metric-name list or an official dashboard, so this starts with scrape-health only. Once `IMMICH_TELEMETRY_INCLUDE=all` is live, browse `http://immich-server:8081/metrics` and `:8082/metrics` (from inside the `proxy` network) to see the real OTEL metric names and add panels for them here — `/etc/grafana/dashboards/immich.json` is auto-reloaded by the file provisioner."
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "API metrics endpoint up",
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "up{job=\"immich-api\"}", "refId": "A" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "down", "color": "red" }, "1": { "text": "up", "color": "green" } } }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Microservices metrics endpoint up",
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "up{job=\"immich-microservices\"}", "refId": "A" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "down", "color": "red" }, "1": { "text": "up", "color": "green" } } }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] }
+        },
+        "overrides": []
+      }
+    }
+  ]
+}

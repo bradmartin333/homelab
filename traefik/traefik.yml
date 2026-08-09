@@ -18,6 +18,12 @@ entryPoints:
     http:
       middlewares:
         - secure-headers@file
+  metrics:
+    address: ":8082"   # internal-only, never published to the host
+
+metrics:
+  prometheus:
+    entryPoint: metrics
 
 certificatesResolvers:
   cloudflare:
