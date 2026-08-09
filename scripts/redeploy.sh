@@ -18,6 +18,17 @@ set -euo pipefail
 REPO_DIR="${HOMELAB_DIR:-/opt/homelab}"
 cd "$REPO_DIR"
 
+# Networks marked `external: true` in a compose file are a promise, not a
+# request — compose expects them to already exist and fails `up` before
+# touching anything if one doesn't. Docker has no idempotent "create if
+# missing", so check first; a plain `network create` errors on a network
+# that's already there.
+EXTERNAL_NETWORKS=(proxy db_internal monitoring_internal)
+echo "==> ensuring external networks exist"
+for net in "${EXTERNAL_NETWORKS[@]}"; do
+  docker network inspect "$net" >/dev/null 2>&1 || docker network create "$net"
+done
+
 echo "==> pulling registry images"
 docker compose pull
 
