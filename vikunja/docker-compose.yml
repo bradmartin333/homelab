@@ -44,6 +44,8 @@ services:
       - "traefik.http.routers.vikunja.middlewares=rate-limit@file"
       - "traefik.http.services.vikunja.loadbalancer.server.port=3456"
       - "com.centurylinklabs.watchtower.enable=true"
+    ports:
+      - "${TAILSCALE_IP:?set TAILSCALE_IP in vikunja/.env}:3456:3456"
 
 networks:
   proxy:
