@@ -17,7 +17,7 @@ else
   exit 1
 fi
 
-CONTAINERS="traefik postgres vikunja cloudflared watchtower immich-server immich-machine-learning immich-redis immich-postgres grafana prometheus node-exporter cadvisor postgres-exporter immich-postgres-exporter"
+CONTAINERS="traefik postgres vikunja cloudflared watchtower immich-server immich-machine-learning immich-redis immich-postgres talkomatic-bot grafana prometheus node-exporter cadvisor postgres-exporter immich-postgres-exporter"
 MOUNTS="/ /srv/docker-data /srv/media"
 # Subset of MOUNTS that must be a real mount, not a directory on the root
 # filesystem. If sdb or md0 fails to come up, the path still exists and both
@@ -40,10 +40,15 @@ warn() { printf '  \033[33m!\033[0m %s\n' "$1"; }
 
 # Age in whole days of the newest snapshot in a repo, or empty if the repo is
 # unreadable or has none. Parsed out of --json so we don't need jq installed.
+#
+# --latest 1 groups by host+paths and returns the latest snapshot PER GROUP,
+# so a repo with more than one distinct path-set (e.g. a leftover group from
+# before SOURCES changed) can return multiple objects here — sort descending
+# and take the first so a stale group never shadows the real latest snapshot.
 snapshot_age_days() {
   local repo=$1 when
   when=$(restic -r "$repo" --password-file "$PASSFILE" snapshots --latest 1 --json 2>/dev/null \
-    | grep -o '"time":"[^"]*"' | head -1 | cut -d'"' -f4)
+    | grep -o '"time":"[^"]*"' | cut -d'"' -f4 | sort -r | head -1)
   [ -n "$when" ] || return 0
   echo $(( ( $(date +%s) - $(date -d "$when" +%s) ) / 86400 ))
 }
