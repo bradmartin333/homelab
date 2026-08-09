@@ -7,7 +7,7 @@ const Anthropic = require("@anthropic-ai/sdk");
 const TALKOMATIC_URL = process.env.TALKOMATIC_URL || "http://talkomatic:3000";
 const BOT_USERNAME = process.env.BOT_USERNAME || "Mr. Roboto";
 const BOT_LOCATION = process.env.BOT_LOCATION || "The Cloud";
-const ROOM_NAME = process.env.ROOM_NAME || "Talkomatic";
+const ROOM_NAME = process.env.ROOM_NAME || "Always Open";
 const CLAUDE_MODEL = process.env.CLAUDE_MODEL || "claude-haiku-4-5-20251001";
 const TALKOMATIC_API_KEY =
   process.env.TALKOMATIC_API_KEY ||
