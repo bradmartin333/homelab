@@ -17,7 +17,7 @@ else
   exit 1
 fi
 
-CONTAINERS="traefik postgres vikunja cloudflared watchtower immich-server immich-machine-learning immich-redis immich-postgres"
+CONTAINERS="traefik postgres vikunja cloudflared watchtower immich-server immich-machine-learning immich-redis immich-postgres talkomatic-bot"
 MOUNTS="/ /srv/docker-data /srv/media"
 # Subset of MOUNTS that must be a real mount, not a directory on the root
 # filesystem. If sdb or md0 fails to come up, the path still exists and both
