@@ -189,7 +189,7 @@ async function claimRoom() {
 
 function rememberTurn(role, content) {
   history.push({ role, content });
-  if (history.length > MAX_HISTORY) history.shift();
+  while (history.length > MAX_HISTORY) history.splice(0, 2);
 }
 
 async function replyTo(userId, username, text) {
@@ -197,11 +197,12 @@ async function replyTo(userId, username, text) {
 
   let reply;
   try {
+    const messages = history[0]?.role === "assistant" ? history.slice(1) : history;
     const response = await anthropic.messages.create({
       model: CLAUDE_MODEL,
       max_tokens: 200,
       system: BOT_PERSONA,
-      messages: history,
+      messages,
     });
     reply = response.content
       .filter((block) => block.type === "text")
@@ -210,9 +211,13 @@ async function replyTo(userId, username, text) {
       .trim();
   } catch (err) {
     console.error("Claude API error:", err.message);
+    history.pop();
     return;
   }
-  if (!reply) return;
+  if (!reply) {
+    history.pop();
+    return;
+  }
   if (reply.length > MAX_REPLY_CHARS) reply = reply.slice(0, MAX_REPLY_CHARS - 1) + "…";
 
   rememberTurn("assistant", reply);
