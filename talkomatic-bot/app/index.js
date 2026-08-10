@@ -398,6 +398,7 @@ async function start() {
 
   socket.on("bot muted", ({ muted }) => {
     isMuted = muted;
+    console.log(muted ? "muted — suppressing LLM calls" : "unmuted — resuming LLM calls");
     if (muted) {
       resetFocus();
       clearBotText();
