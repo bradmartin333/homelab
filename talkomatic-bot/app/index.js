@@ -49,6 +49,7 @@ let botToken = null;
 let tokenExpiresAt = 0;
 let socket = null;
 let roomId = null;
+let isMuted = false;
 
 let focusUserId = null; // the one user we're currently paying attention to
 let focusTimer = null;
@@ -294,6 +295,7 @@ function settleThenReply(userId, username, text) {
 
 function handleIncomingChat(payload) {
   if (!payload || payload.userId === botUserId) return;
+  if (isMuted) return;
   const text = (payload.diff && payload.diff.text) || "";
   const userId = payload.userId;
   const username = payload.username || "someone";
@@ -393,6 +395,14 @@ async function start() {
   });
 
   socket.on("chat update", handleIncomingChat);
+
+  socket.on("bot muted", ({ muted }) => {
+    isMuted = muted;
+    if (muted) {
+      resetFocus();
+      clearBotText();
+    }
+  });
 
   // Full room snapshot on every join/leave. Clear our own text once we're
   // the only one left — nobody's around to read it anymore.
