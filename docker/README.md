@@ -22,6 +22,11 @@ truncated retroactively — the cap applies as they rotate. To reclaim space fro
 logs that already grew, recreate the container (`docker compose up -d --force-recreate <service>`)
 or truncate the file under `/var/lib/docker/containers/<id>/`.
 
+`live-restore: true` keeps containers running while the Docker daemon itself restarts (e.g.
+for a Docker engine upgrade) instead of stopping everything with it — one less interruption
+on a machine nobody is watching. This only affects containers created *after* the daemon
+restart; existing ones need `docker compose up -d --force-recreate` to pick it up.
+
 Check current usage with:
 
 ```bash
