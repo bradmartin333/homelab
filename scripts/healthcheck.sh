@@ -107,11 +107,14 @@ else
 fi
 
 echo; echo "BACKUPS"
-code=$(systemctl show homelab-backup.service -p ExecMainStatus --value)
-when=$(systemctl show homelab-backup.service -p ExecMainExitTimestamp --value)
-if   [ -z "$when" ];    then warn "homelab-backup.service has never run — check: systemctl list-timers | grep homelab-backup"
-elif [ "$code" = "0" ]; then ok "last run clean — $when"
-else                         bad "last run exit=$code — $when"
+STATUS_FILE="$STAGING/last-run-status"
+if [ ! -f "$STATUS_FILE" ]; then
+  warn "homelab-backup.service has never run — check: systemctl list-timers | grep homelab-backup"
+else
+  read -r status when < "$STATUS_FILE"
+  if [ "$status" = "ok" ]; then ok "last run clean — $when"
+  else                          bad "last run failed — $when — check: journalctl -u homelab-backup"
+  fi
 fi
 
 for f in "$STAGING/pg_dumpall.sql" "$STAGING/immich_pg_dumpall.sql"; do

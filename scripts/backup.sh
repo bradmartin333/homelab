@@ -60,10 +60,17 @@ flock -n 9 || { echo "error: another backup is already running" >&2; exit 1; }
 
 # Ping the dead man's switch immediately on failure rather than letting the
 # check time out hours later. See the main doc's 19.3.
+STATUS_FILE="$STAGING/last-run-status"
 hc_fail() { curl -fsS -m 10 --retry 3 "https://hc-ping.com/$HC_UUID/fail" >/dev/null || true; }
 on_exit() {
   local rc=$?
-  [ "$rc" -eq 0 ] || hc_fail
+  mkdir -p "$(dirname "$STATUS_FILE")"
+  if [ "$rc" -eq 0 ]; then
+    printf 'ok %s\n' "$(date -Iseconds)" > "$STATUS_FILE"
+  else
+    printf 'fail %s\n' "$(date -Iseconds)" > "$STATUS_FILE"
+    hc_fail
+  fi
 }
 trap on_exit EXIT
 
