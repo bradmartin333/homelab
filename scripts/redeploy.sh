@@ -30,16 +30,11 @@ REPO_DIR="${HOMELAB_DIR:-/opt/homelab}"
 cd "$REPO_DIR"
 
 if ! $CHAT_ONLY; then
-  # Networks marked `external: true` in a compose file are a promise, not a
-  # request — compose expects them to already exist and fails `up` before
-  # touching anything if one doesn't. Docker has no idempotent "create if
-  # missing", so check first; a plain `network create` errors on a network
-  # that's already there.
-  EXTERNAL_NETWORKS=(proxy db_internal monitoring_internal)
+  # Subnets are pinned, not just "exists" — see create-networks.sh for why an
+  # unpinned `docker network create` silently breaks traefik's trusted-IP
+  # forwarding on the proxy network.
   echo "==> ensuring external networks exist"
-  for net in "${EXTERNAL_NETWORKS[@]}"; do
-    docker network inspect "$net" >/dev/null 2>&1 || docker network create "$net"
-  done
+  "$REPO_DIR/scripts/create-networks.sh"
 
   echo "==> pulling registry images"
   docker compose pull
