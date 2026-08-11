@@ -1,5 +1,5 @@
 [Unit]
-Description=Homelab restic backup (local-only)
+Description=Homelab restic backup (local, array mirror, and B2 offsite)
 Wants=network-online.target
 After=network-online.target docker.service
 Requires=docker.service

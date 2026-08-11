@@ -11,16 +11,16 @@ is a separate doc: [restore.md](restore.md).
 | `/opt/homelab`                    | nvme  | this repo, decrypted `.env` files                | restic + B2            |
 | `/srv/docker-data`                | `sdb` | postgres PGDATA, immich PGDATA, vikunja files    | restic + B2, partial   |
 | `/srv/docker-data/restic-repo`    | `sdb` | the local restic repository                      | is the backup          |
-| `/srv/media/immich`               | `md0` | Immich media library (`$UPLOAD_LOCATION`)        | rPi replica only (not yet built — see `pi-offsite-backup.md` in `homelab-runbook`) |
+| `/srv/media/immich`               | `md0` | Immich media library (`$UPLOAD_LOCATION`)        | rPi replica only (not yet built — see [`future-pi-offsite-backup.md`](future-pi-offsite-backup.md)) |
 | `/srv/media/restic-mirror`        | `md0` | mirror of the local restic repo                  | is a backup copy       |
 
 `/srv/media` is a **RAID1 mirror — redundant storage, not a backup.** It
 protects against a single disk failure, not against `rm -rf`, corruption, a bad
 upgrade, or the house burning down; the mirror replicates all of those to both
 disks instantly. (It was previously mounted at `/mnt/backup`, which described
-neither what it held nor what it was for — if you see that path anywhere
-outside this repo, including the public `homelab-runbook` tutorial's generic
-Phase 8 example, it's describing the pattern, not this box's current state.)
+neither what it held nor what it was for — if you see that path referenced
+anywhere else, it's describing the general pattern, not this box's current
+state.)
 
 The actual backup is the restic repo on `sdb`, its mirror on `/srv/media`, and
 its offsite copy in B2. See [restore.md](restore.md) for which to use when.

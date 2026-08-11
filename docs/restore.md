@@ -123,21 +123,50 @@ browse is egress. Prefer the local repo.
 Order matters:
 
 1. Provision the OS, install docker, restic, sops, age.
-2. Restore the age key from wherever it's kept offsite. **Without it the
+2. **Firewall, before anything is network-reachable:**
+   ```bash
+   sudo apt install -y ufw
+   sudo ufw default deny incoming
+   sudo ufw default allow outgoing
+   sudo ufw allow from <your LAN subnet> to any port 22 proto tcp
+   ```
+   ⛔ Verify the SSH rule actually landed before enabling — a malformed
+   subnet silently drops the rule instead of erroring, and `default deny
+   incoming` on top of that locks SSH out completely with no console access
+   assumed:
+   ```bash
+   sudo ufw show added | grep 22   # must show the rule above
+   sudo ufw enable
+   ```
+   The Tailscale rule (`sudo ufw allow in on tailscale0 to any port 22 proto
+   tcp`) comes later, once Tailscale itself is up — see the Tailscale step
+   below.
+3. Restore the age key from wherever it's kept offsite. **Without it the
    `.env.enc` files in git are unreadable** — this is the one secret not in
    any backup, by design.
-3. `git clone` this repo to `/opt/homelab`, then
-   `scripts/homelab-secrets.sh decrypt`.
-4. Mount `sdb` at `/srv/docker-data`. If `sdb` is what died, the local repo
+4. `git clone` this repo to `/opt/homelab`, then
+   `scripts/homelab-secrets.sh decrypt`. This restores every `<app>/.env`
+   from its `.env.enc` — but **not** the root `/opt/homelab/.env`, which
+   `homelab-secrets.sh` deliberately doesn't touch (glob is `*/.env`, one
+   level deep only). The root `.env` interpolates `${TRAEFIK_BIND_IP}`,
+   `${ACME_EMAIL}`, `${IMMICH_DOMAIN}`, `${VIKUNJA_DOMAIN}`,
+   `${TALKOMATIC_DOMAIN}`, `${TALKOMATIC_BRANCH}` directly into the compose
+   files — none of it is secret (a domain name is public in DNS regardless),
+   so it's a plain template rather than sops-encrypted:
+   ```bash
+   cp /opt/homelab/.env.example /opt/homelab/.env
+   $EDITOR /opt/homelab/.env      # fill in your real domain/IP/email
+   ```
+5. Mount `sdb` at `/srv/docker-data`. If `sdb` is what died, the local repo
    died with it — point `REPO` at the array mirror or B2 and restore over the
    network instead.
-5. Assemble and mount the `md0` array at `/srv/media` — `mdadm --assemble
+6. Assemble and mount the `md0` array at `/srv/media` — `mdadm --assemble
    --scan`, then check `/proc/mdstat`. If the photos survived, they're here
    and don't need restoring at all.
-6. Restore `/srv/docker-data` from restic to a scratch path, then move it
+7. Restore `/srv/docker-data` from restic to a scratch path, then move it
    into place. The two `PGDATA` directories are *not* in there — that's
    expected, the containers recreate them empty on first start.
-7. Recreate the external docker networks — nothing in the stack does this on
+8. Recreate the external docker networks — nothing in the stack does this on
    its own, and `docker compose up` fails outright without them:
    ```bash
    sudo cp /opt/homelab/docker/daemon.json /etc/docker/daemon.json
@@ -145,14 +174,70 @@ Order matters:
    /opt/homelab/scripts/create-networks.sh
    ```
    **The `proxy` subnet is not optional** — see `create-networks.sh` for why.
-8. Install the ssh hardening, unattended-upgrades, and systemd backup timer
+9. Install the ssh hardening, unattended-upgrades, and systemd backup timer
    configs — see the READMEs in `ssh/`, `apt/`, and `systemd/`.
-9. `docker compose up -d` and let both clusters initialize from scratch.
-10. Load both dumps, per the sections above.
-11. Only if the array was lost too: restore the Immich media library from the
-    rPi replica (once built — see `homelab-runbook`'s `pi-offsite-backup.md`)
-    into `$UPLOAD_LOCATION`, then have Immich rescan. Thumbnails and encoded
-    video regenerate on their own.
+10. **Rejoin Tailscale** — needed for remote access, and `immich/docker-compose.yml`
+    binds to `$TAILSCALE_IP`:
+    ```bash
+    curl -fsSL https://tailscale.com/install.sh | sh
+    sudo tailscale up
+    sudo tailscale set --auto-update
+    sudo tailscale set --ssh
+    tailscale ip -4
+    ```
+    `tailscale up` prints a URL — open it and approve the machine. In the
+    [admin console](https://login.tailscale.com/admin/machines), disable key
+    expiry on this machine again (`⋯` → *Disable key expiry* — node keys
+    otherwise expire in 180 days and recovery needs an interactive login *at
+    the machine*, which is the whole problem on a headless rebuild) and enable
+    MagicDNS. Allow SSH over the tailnet:
+    ```bash
+    sudo ufw allow in on tailscale0 to any port 22 proto tcp
+    ```
+    Update `TAILSCALE_IP` in `immich/.env` to the new address, then
+    `scripts/homelab-secrets.sh commit`.
+11. **Create a new Cloudflare Tunnel** — tunnel credentials are deliberately
+    not in any backup, so this is always a fresh tunnel on a rebuild, not a
+    restore:
+    ```bash
+    sudo mkdir -p /srv/docker-data/cloudflared
+    sudo chown -R 65532:65532 /srv/docker-data/cloudflared
+    docker run --rm -it -v /srv/docker-data/cloudflared:/home/nonroot/.cloudflared \
+      cloudflare/cloudflared:latest tunnel login       # opens a URL, authorize the domain
+    docker run --rm -it -v /srv/docker-data/cloudflared:/home/nonroot/.cloudflared \
+      cloudflare/cloudflared:latest tunnel create homelab
+    ```
+    Prints a `<TUNNEL_UUID>` and writes `<TUNNEL_UUID>.json` next to
+    `cert.pem` — record the UUID somewhere durable, same reasoning as the age
+    key. Write `/srv/docker-data/cloudflared/config.yml`:
+    ```yaml
+    tunnel: <TUNNEL_UUID>
+    credentials-file: /home/nonroot/.cloudflared/<TUNNEL_UUID>.json
+    ingress:
+      - hostname: "*.<your domain>"
+        service: https://traefik:443
+        originRequest:
+          noTLSVerify: true
+      - hostname: "<your domain>"
+        service: https://traefik:443
+        originRequest:
+          noTLSVerify: true
+      - service: http_status:404
+    ```
+    ```bash
+    sudo chown 65532:65532 /srv/docker-data/cloudflared/config.yml
+    ```
+    In the Cloudflare dashboard, update both DNS CNAMEs (`*` and `@`) to
+    `<TUNNEL_UUID>.cfargotunnel.com` (proxied), then delete the old tunnel.
+12. `docker compose up -d` and let both clusters initialize from scratch.
+    Check `docker compose logs -f cloudflared` for `Registered tunnel
+    connection` (usually four) before assuming the tunnel step above worked.
+13. Load both dumps, per the sections above.
+14. Only if the array was lost too: restore the Immich media library from the
+    rPi replica (once built — see
+    [`future-pi-offsite-backup.md`](future-pi-offsite-backup.md)) into
+    `$UPLOAD_LOCATION`, then have Immich rescan. Thumbnails and encoded video
+    regenerate on their own.
 
 ## Restoring from B2
 
