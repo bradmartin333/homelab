@@ -198,7 +198,7 @@ death reports as all-green.
    default rather than silently missing until the day it matters.
 5. Add a scrape target in `monitoring/prometheus/prometheus.yml` if it exposes
    metrics.
-6. Encrypt and commit: `scripts/homelab-secrets.sh commit "add <appname>"`.
+6. Encrypt and commit: `./homelab-secrets.sh commit "add <appname>"`.
 7. `scripts/redeploy.sh`, then check `docker logs traefik` for the certificate.
 
 No DNS, router, or tunnel changes are needed — the wildcard CNAME and wildcard
@@ -253,4 +253,4 @@ there and no one can read it. Password manager, or paper in another building.
 | Whole stack up / status   | `cd /opt/homelab && docker compose up -d` / `docker compose ps`          |
 | Rebuild + restart changed | `/opt/homelab/scripts/redeploy.sh`                                       |
 | Local snapshots           | `sudo restic -r /srv/docker-data/restic-repo --password-file /root/.restic-password snapshots` |
-| Commit config             | `scripts/homelab-secrets.sh commit "message"`                            |
+| Commit config             | `./homelab-secrets.sh commit "message"`                            |

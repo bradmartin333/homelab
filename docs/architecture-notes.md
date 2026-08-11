@@ -43,7 +43,7 @@ Set in `immich/.env` (same file as `UPLOAD_LOCATION`):
 ```bash
 docker exec immich-server tailscale ip -4 2>/dev/null || tailscale ip -4
 $EDITOR /opt/homelab/immich/.env      # TAILSCALE_IP=<the ip above>
-/opt/homelab/scripts/homelab-secrets.sh commit "update tailscale bind ip"
+/opt/homelab/homelab-secrets.sh commit "update tailscale bind ip"
 ```
 
 The compose file uses `${TAILSCALE_IP:?...}` rather than a bare `${TAILSCALE_IP}`

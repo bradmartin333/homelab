@@ -67,7 +67,7 @@ ls /tmp/env-recover/opt/homelab/*/.env
 > A mismatch is silent until the day you need it — nothing warns you, because
 > the running stack reads the already-decrypted plaintext `.env` files and
 > never touches sops. Re-encrypt to a key you hold with
-> `scripts/homelab-secrets.sh encrypt` after fixing `.sops.yaml`.
+> `./homelab-secrets.sh encrypt` after fixing `.sops.yaml`.
 
 The restic password has no such fallback. Lose it and all three repositories
 are permanently unreadable — see the ⛔ in
@@ -191,7 +191,7 @@ Order matters:
    key is unavailable, restic still has the plaintext copies, so this is a
    convenience path rather than the only one.
 4. `git clone` this repo to `/opt/homelab`, then
-   `scripts/homelab-secrets.sh decrypt`. This restores every `<app>/.env`
+   `./homelab-secrets.sh decrypt`. This restores every `<app>/.env`
    from its `.env.enc` — but **not** the root `/opt/homelab/.env`, which
    `homelab-secrets.sh` deliberately doesn't touch (glob is `*/.env`, one
    level deep only). The root `.env` interpolates `${TRAEFIK_BIND_IP}`,
@@ -241,7 +241,7 @@ Order matters:
     sudo ufw allow in on tailscale0 to any port 22 proto tcp
     ```
     Update `TAILSCALE_IP` in `immich/.env` to the new address, then
-    `scripts/homelab-secrets.sh commit`.
+    `./homelab-secrets.sh commit`.
 11. **Create a new Cloudflare Tunnel** — tunnel credentials are deliberately
     not in any backup, so this is always a fresh tunnel on a rebuild, not a
     restore:
