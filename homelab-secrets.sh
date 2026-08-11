@@ -43,7 +43,18 @@ encrypt_secrets() {
   for f in */.env; do
     [ -f "$f" ] || continue
     found=1
-    sops -e --input-type dotenv --output-type dotenv "$f" > "$f.enc"
+    # An empty .env is almost always a truncation accident, not a real state.
+    # Encrypting it would overwrite a good .env.enc with nothing and destroy
+    # the last copy of those secrets — refuse instead.
+    if [ ! -s "$f" ]; then
+      echo "error: $f is empty — refusing to overwrite $f.enc" >&2
+      echo "       recover it first, or delete $f if it is genuinely unused" >&2
+      return 1
+    fi
+    # Write to a temp file and move on success, so a failed sops run can't
+    # leave a half-written or empty .enc behind.
+    sops -e --input-type dotenv --output-type dotenv "$f" > "$f.enc.tmp"
+    mv "$f.enc.tmp" "$f.enc"
     echo "encrypted: $f -> $f.enc"
   done
   [ "$found" -eq 1 ] || echo "no */.env files found, nothing to encrypt"
@@ -55,9 +66,19 @@ decrypt_secrets() {
   for f in */.env.enc; do
     [ -f "$f" ] || continue
     found=1
-    sops -d --input-type dotenv --output-type dotenv "$f" > "${f%.enc}"
-    chmod 600 "${f%.enc}"
-    echo "decrypted: $f -> ${f%.enc}"
+    local out="${f%.enc}"
+    # Decrypt to a temp file and move on success. A plain `> "$out"` redirect
+    # truncates the plaintext .env *before* sops runs, so a failed decrypt
+    # (wrong age key, corrupt file) silently destroys the very secrets it was
+    # meant to restore — and the plaintext is often the only remaining copy.
+    if ! sops -d --input-type dotenv --output-type dotenv "$f" > "$out.tmp"; then
+      rm -f "$out.tmp"
+      echo "error: failed to decrypt $f — left $out untouched" >&2
+      return 1
+    fi
+    mv "$out.tmp" "$out"
+    chmod 600 "$out"
+    echo "decrypted: $f -> $out"
   done
   [ "$found" -eq 1 ] || echo "no */.env.enc files found, nothing to decrypt"
 }

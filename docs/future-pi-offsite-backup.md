@@ -24,7 +24,7 @@ Postgres dumps, Vikunja files, and the photo library all go to the Pi.
 - 2TB external SSD in a USB3 enclosure
 - Raspberry Pi Imager, on a machine that can pre-configure hostname/SSH
   key/Wi-Fi before first boot
-- The same tailnet `homelab` (`100.115.137.14`) is already on
+- The same tailnet `homelab` is already on (`tailscale ip -4` on the tower)
 
 ## Steps
 

@@ -22,7 +22,17 @@ ARRAY_REPO=/srv/media/restic-mirror
 PASSFILE=/root/.restic-password
 B2_ENV=/root/.restic-b2.env
 STAGING=/var/lib/homelab-backup-staging
-HC_UUID=9923bec3-33a7-4813-83bf-00bd02be74f6
+# healthchecks.io ping UUID, kept out of this repo because it is public:
+# anyone holding the UUID can POST a fake "backup succeeded" ping and
+# suppress the one alert that tells you backups have stopped.
+#   printf '%s\n' '<uuid>' > /root/.homelab-hc-uuid && chmod 600 /root/.homelab-hc-uuid
+HC_UUID_FILE=/root/.homelab-hc-uuid
+HC_UUID=$(cat "$HC_UUID_FILE" 2>/dev/null || true)
+if [ -z "$HC_UUID" ]; then
+  # Warn loudly but keep backing up — losing the dead man's switch is bad,
+  # losing the backup itself is worse.
+  echo "warning: $HC_UUID_FILE missing or empty — dead man's switch disabled" >&2
+fi
 
 # A pg_dumpall of even an empty cluster clears this comfortably, so anything
 # smaller means the dump completed but came back hollow — wrong container,
@@ -64,7 +74,7 @@ flock -n 9 || { echo "error: another backup is already running" >&2; exit 1; }
 # running or the box is off" and an explicit /fail means "it ran and broke" —
 # see docs/operations.md.
 STATUS_FILE="$STAGING/last-run-status"
-hc_fail() { curl -fsS -m 10 --retry 3 "https://hc-ping.com/$HC_UUID/fail" >/dev/null || true; }
+hc_fail() { [ -n "$HC_UUID" ] || return 0; curl -fsS -m 10 --retry 3 "https://hc-ping.com/$HC_UUID/fail" >/dev/null || true; }
 on_exit() {
   local rc=$?
   mkdir -p "$(dirname "$STATUS_FILE")"
@@ -184,4 +194,5 @@ if [ "$(date +%d)" = "$B2_PRUNE_DOM" ]; then
 fi
 
 # Only reached if every step above succeeded.
-curl -fsS -m 10 --retry 3 "https://hc-ping.com/$HC_UUID" > /dev/null
+[ -n "$HC_UUID" ] && curl -fsS -m 10 --retry 3 "https://hc-ping.com/$HC_UUID" > /dev/null
+exit 0
