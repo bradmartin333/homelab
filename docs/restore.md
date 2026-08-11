@@ -312,15 +312,40 @@ restic, export `B2_ACCOUNT_ID`/`B2_ACCOUNT_KEY`, point `-r` at the repo.
 A backup you've never restored is a hypothesis. Twice a year:
 
 1. Restore `pg_dumpall.sql` from **B2**, not local, into a throwaway postgres
-   container and confirm the vikunja tables have your data:
+   container and confirm the vikunja tables have your data.
+
+   Only the restic step needs root (it reads `/root/.restic-b2.env` and
+   `/root/.restic-password`); everything else runs as your normal user via the
+   `docker` group, so scope `sudo` to that one command rather than the whole
+   drill:
+
    ```bash
+   docker rm -f pgtest 2>/dev/null || true   # clear any stale container first
    docker run -d --name pgtest -e POSTGRES_PASSWORD=x postgres:18
-   restic -r "$RESTIC_B2_REPO" --password-file "$PASS" \
-     dump latest /var/lib/homelab-backup-staging/pg_dumpall.sql \
-     | docker exec -i pgtest psql -U postgres
+
+   # docker run -d returns before postgres accepts connections, so wait — but
+   # bail out if the container died rather than looping forever. A bare
+   # `until docker exec ... pg_isready` spins silently against a dead
+   # container, and the usual cause (missing POSTGRES_PASSWORD, name clash)
+   # is only visible in its logs.
+   for _ in $(seq 30); do
+     docker exec pgtest pg_isready -q 2>/dev/null && break
+     docker ps -q -f name=pgtest -f status=running | grep -q . || {
+       echo "pgtest exited before becoming ready:"; docker logs pgtest --tail 20; break; }
+     sleep 1
+   done
+
+   sudo bash -c 'set -a; . /root/.restic-b2.env; set +a
+     restic -r "$RESTIC_B2_REPO" --password-file /root/.restic-password \
+       dump latest /var/lib/homelab-backup-staging/pg_dumpall.sql' \
+     | docker exec -i pgtest psql -U postgres -v ON_ERROR_STOP=1
+
    docker exec pgtest psql -U postgres -d vikunja -c 'select count(*) from tasks;'
    docker rm -f pgtest
    ```
+
+   `ON_ERROR_STOP=1` matters: without it `psql` reports success even if half
+   the statements failed, which would make a broken backup look restorable.
 2. `restic -r "$RESTIC_B2_REPO" --password-file "$PASS" check --read-data-subset=5%`
    — verifies the offsite data itself rather than just the index, at 5% of
    the egress of a full `--read-data`.
