@@ -30,6 +30,49 @@ REPO=/srv/docker-data/restic-repo
 PASS=/root/.restic-password
 ```
 
+## Two paths to the `.env` files
+
+Application secrets exist in two independent places, which matters because
+they fail independently:
+
+| Path | Source | Needs | Fails if |
+| ----- | ------- | ------ | --------- |
+| sops | `<app>/.env.enc` in git | the **age key** | age key lost or not the one the files were encrypted to |
+| restic | `/opt/homelab` in any repo | the **restic password** | restic password lost |
+
+`backup.sh` backs up `/opt/homelab` wholesale with no `.env` exclusion, so
+**the plaintext `.env` files are inside every restic snapshot.** Git only ever
+holds the encrypted `.enc` copies. That redundancy is deliberate: losing one
+key still leaves a route to the secrets.
+
+To recover them without sops:
+
+```bash
+restic -r "$REPO" --password-file "$PASS" \
+  restore latest --target /tmp/env-recover --include /opt/homelab
+ls /tmp/env-recover/opt/homelab/*/.env
+```
+
+> ⚠️ **Verify the age key round-trips before relying on the sops path.** The
+> recipient in `.sops.yaml` (and recorded inside every `.enc` file) must match
+> the public key of the private key you hold. Check them against each other:
+>
+> ```bash
+> grep age .sops.yaml                                    # expected recipient
+> grep -o 'public key: .*' ~/.config/sops/age/keys.txt   # key you actually have
+> sops -d --input-type dotenv --output-type dotenv postgres/.env.enc >/dev/null \
+>   && echo "sops path OK" || echo "sops path BROKEN — use the restic path"
+> ```
+>
+> A mismatch is silent until the day you need it — nothing warns you, because
+> the running stack reads the already-decrypted plaintext `.env` files and
+> never touches sops. Re-encrypt to a key you hold with
+> `scripts/homelab-secrets.sh encrypt` after fixing `.sops.yaml`.
+
+The restic password has no such fallback. Lose it and all three repositories
+are permanently unreadable — see the ⛔ in
+[operations.md](operations.md#quick-reference).
+
 ## Find what you're looking for
 
 ```bash
@@ -143,7 +186,10 @@ Order matters:
    below.
 3. Restore the age key from wherever it's kept offsite. **Without it the
    `.env.enc` files in git are unreadable** — this is the one secret not in
-   any backup, by design.
+   any backup, by design. See
+   [Two paths to the `.env` files](#two-paths-to-the-env-files) below: if the
+   key is unavailable, restic still has the plaintext copies, so this is a
+   convenience path rather than the only one.
 4. `git clone` this repo to `/opt/homelab`, then
    `scripts/homelab-secrets.sh decrypt`. This restores every `<app>/.env`
    from its `.env.enc` — but **not** the root `/opt/homelab/.env`, which
@@ -279,7 +325,10 @@ A backup you've never restored is a hypothesis. Twice a year:
    — verifies the offsite data itself rather than just the index, at 5% of
    the egress of a full `--read-data`.
 3. Confirm you can still decrypt `.env.enc` with the archived copy of the age
-   key, not the one already on the box.
+   key, not the one already on the box — see
+   [Two paths to the `.env` files](#two-paths-to-the-env-files). This is the
+   check most likely to have quietly broken, because nothing in normal
+   operation exercises it.
 4. Run `scripts/sanitycheck.sh` — confirms the local, array-mirror, and B2
    repos all hold the identical nightly snapshot, not just that each is
    independently recent.

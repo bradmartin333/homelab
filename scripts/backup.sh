@@ -59,7 +59,10 @@ exec 9>/run/homelab-backup.lock
 flock -n 9 || { echo "error: another backup is already running" >&2; exit 1; }
 
 # Ping the dead man's switch immediately on failure rather than letting the
-# check time out hours later. See the main doc's 19.3.
+# check time out hours later. The healthchecks.io check is configured with a
+# 1-day period plus a few hours' grace, so silence means "the job stopped
+# running or the box is off" and an explicit /fail means "it ran and broke" —
+# see docs/operations.md.
 STATUS_FILE="$STAGING/last-run-status"
 hc_fail() { curl -fsS -m 10 --retry 3 "https://hc-ping.com/$HC_UUID/fail" >/dev/null || true; }
 on_exit() {
