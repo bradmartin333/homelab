@@ -338,14 +338,37 @@ A backup you've never restored is a hypothesis. Twice a year:
    sudo bash -c 'set -a; . /root/.restic-b2.env; set +a
      restic -r "$RESTIC_B2_REPO" --password-file /root/.restic-password \
        dump latest /var/lib/homelab-backup-staging/pg_dumpall.sql' \
-     | docker exec -i pgtest psql -U postgres -v ON_ERROR_STOP=1
+     | docker exec -i pgtest psql -U postgres > /tmp/restore.log 2>&1
+
+   # psql continues past failed statements and still exits 0, so check the log
+   # rather than the exit code — otherwise a half-failed restore looks fine.
+   # The two role errors below are unavoidable and expected; see the note.
+   grep '^ERROR' /tmp/restore.log \
+     | grep -vE 'current user cannot be dropped|role "postgres" already exists' \
+     || echo "no unexpected errors ✓"
 
    docker exec pgtest psql -U postgres -d vikunja -c 'select count(*) from tasks;'
    docker rm -f pgtest
    ```
 
-   `ON_ERROR_STOP=1` matters: without it `psql` reports success even if half
-   the statements failed, which would make a broken backup look restorable.
+   ⚠️ **Do not add `-v ON_ERROR_STOP=1` here.** `pg_dumpall --clean` always
+   emits `DROP ROLE IF EXISTS postgres;`, and restoring *as* postgres makes
+   that fail with `current user cannot be dropped` every single time — which
+   in turn leaves the role in place, so the following `CREATE ROLE postgres`
+   fails with `role "postgres" already exists`. Both are unavoidable and
+   harmless (the subsequent `ALTER ROLE` sets the real attributes). With
+   `ON_ERROR_STOP=1` psql halts at the first one — before `CREATE DATABASE
+   vikunja` — and the drill fails without restoring anything at all.
+
+   These are also expected and harmless:
+   `NOTICE: database "vikunja" does not exist, skipping` (a fresh cluster has
+   nothing to drop) and a bare `DROP DATABASE`. Filtering the log for
+   unexpected `ERROR` lines gives the same protection without the false
+   failure.
+
+   **A passing drill looks like:** `no unexpected errors ✓`, a task count
+   matching live, and ~37 tables in `vikunja`. Recorded 2026-08-11: 70 tasks
+   restored from B2, 70 live — exact match.
 2. `restic -r "$RESTIC_B2_REPO" --password-file "$PASS" check --read-data-subset=5%`
    — verifies the offsite data itself rather than just the index, at 5% of
    the egress of a full `--read-data`.
