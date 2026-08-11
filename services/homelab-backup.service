@@ -1,0 +1,9 @@
+[Unit]
+Description=Homelab restic backup (local-only)
+Wants=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/homelab/scripts/backup.sh
