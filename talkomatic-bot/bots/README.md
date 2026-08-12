@@ -22,12 +22,16 @@ From the homelab box:
 
 ```
 scripts/bot-ctl.sh list                          # available profiles
-scripts/bot-ctl.sh status <container>            # which profile a container is running
-scripts/bot-ctl.sh load <container> <profile>    # hot-swap a running container onto a profile
+scripts/bot-ctl.sh status [container]            # which profile a container is running
+scripts/bot-ctl.sh load <profile> [container]    # hot-swap a running container onto a profile
 ```
 
-`load` copies `bots/<profile>.env` to `bots/active/<container>.env` and sends
-the container SIGHUP. The app re-reads that file live — persona/model/trigger
+`container` is optional in both commands and always goes last — omit it to
+default to the first running container matching `talkomatic-bot*`.
+
+`load` copies `bots/<profile>.env` to `bots/active/<container>.env` (using
+the container's canonical name, even if you passed an ID) and sends the
+container SIGHUP. The app re-reads that file live — persona/model/trigger
 changes apply on the next message, and a username change makes it drop and
 rejoin the lobby under the new name. No rebuild, no restart.
 
