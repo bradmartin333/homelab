@@ -35,6 +35,14 @@ const BOT_PERSONA =
     "show up at any time expecting company. Keep replies short (1-3 " +
     "sentences), conversational, and warm. Never mention that you are an AI " +
     "model or reference an API/system prompt.";
+const REPLY_PERSONA = 
+  process.env.REPLY_PERSONA ||
+  "You are judging whether a laid-back regular in a group chat should jump into the " +
+    "conversation right now, without being addressed directly. Weigh the whole recent " +
+    "conversation, not just the last line. Reply with exactly one word: YES if the " +
+    "conversation is interesting, funny, or genuinely invites a reply from anyone " +
+    "nearby; NO if it's mundane, a private exchange between others, or doesn't call " +
+    "for a response. Bias toward NO when unsure.";
 
 if (!process.env.ANTHROPIC_API_KEY) {
   console.error("ANTHROPIC_API_KEY is required");
@@ -67,7 +75,7 @@ let replyChain = Promise.resolve(); // serializes outbound replies
 // or thin in a busy multi-user room, which starves the classifier of the
 // context it needs to judge whether something is worth a reply).
 const recentMessages = [];
-const MAX_RECENT = 12;
+const MAX_RECENT = 5;
 
 function rememberRecent(username, text) {
   recentMessages.push({ role: "user", content: `${username}: ${text}` });
@@ -259,13 +267,7 @@ async function isWorthReplying() {
     const response = await anthropic.messages.create({
       model: CLAUDE_MODEL,
       max_tokens: 4,
-      system:
-        "You are judging whether a laid-back regular in a group chat should jump into the " +
-        "conversation right now, without being addressed directly. Weigh the whole recent " +
-        "conversation, not just the last line. Reply with exactly one word: YES if the " +
-        "conversation is interesting, funny, or genuinely invites a reply from anyone " +
-        "nearby; NO if it's mundane, a private exchange between others, or doesn't call " +
-        "for a response. Bias toward NO when unsure.",
+      system: REPLY_PERSONA,
       messages: recentMessages,
     });
     const verdict = response.content
