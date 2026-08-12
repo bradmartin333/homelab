@@ -31,20 +31,6 @@ const userMessageCounter = new client.Counter({
 });
 register.registerMetric(userMessageCounter);
 
-// const metricsServer = http.createServer(async (req, res) => {
-//   if (req.url === "/metrics") {
-//     res.writeHead(200, { "Content-Type": register.contentType });
-//     res.end(await register.metrics());
-//     return;
-//   }
-//   res.writeHead(404);
-//   res.end();
-// });
-// const METRICS_PORT = Number(process.env.METRICS_PORT || 8080);
-// metricsServer.listen(METRICS_PORT, () => {
-//   console.log(`metrics listening on :${METRICS_PORT}`);
-// });
-
 const TALKOMATIC_URL = process.env.TALKOMATIC_URL || "http://talkomatic:3000";
 const BOT_USERNAME = process.env.BOT_USERNAME || "Mr. Roboto";
 const BOT_LOCATION = process.env.BOT_LOCATION || "The Cloud";
@@ -101,6 +87,7 @@ let roomId = null;
 let isMuted = false;
 
 let focusUserId = null; // the one user we're currently paying attention to
+let focusSource = null; // "keyword" | "relevance" — how focus was acquired, for metrics
 let focusTimer = null;
 let botHasText = false; // whether the bot currently has visible chat text on screen
 let repliedToUserId = null; // who our current on-screen text is addressed to
@@ -126,10 +113,15 @@ function rememberRecent(username, text) {
 // ── Health endpoint ──────────────────────────────────────────────────────
 
 http
-  .createServer((req, res) => {
+  .createServer(async (req, res) => {
     if (req.url === "/healthz") {
       res.writeHead(healthy ? 200 : 503, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ status: healthy ? "ok" : "not ready" }));
+      return;
+    }
+    if (req.url === "/metrics") {
+      res.writeHead(200, { "Content-Type": register.contentType });
+      res.end(await register.metrics());
       return;
     }
     res.writeHead(404);
@@ -242,7 +234,7 @@ function rememberTurn(role, content) {
   while (history.length > MAX_HISTORY) history.splice(0, 2);
 }
 
-async function replyTo(userId, username, text) {
+async function replyTo(userId, username, text, source) {
   rememberTurn("user", `${username}: ${text}`);
 
   let reply;
@@ -274,12 +266,17 @@ async function replyTo(userId, username, text) {
   socket.emit("chat update", { diff: { type: "full-replace", text: reply } });
   botHasText = true;
   repliedToUserId = userId;
+
+  botReplyCounter.inc();
+  if (source === "keyword") keywordReplyCounter.inc();
+  if (source === "relevance") relevanceReplyCounter.inc();
 }
 
 function resetFocus() {
   clearTimeout(focusTimer);
   clearTimeout(checkTimer);
   focusUserId = null;
+  focusSource = null;
   checkingUserId = null;
 }
 
@@ -327,18 +324,21 @@ async function isWorthReplying() {
 function settleThenReply(userId, username, text) {
   clearTimeout(focusTimer);
   focusTimer = setTimeout(() => {
+    const source = focusSource;
     focusUserId = null;
+    focusSource = null;
     const trimmed = text.trim();
     if (!trimmed) return;
     rememberRecent(username, trimmed);
     lastReplyAt = Date.now();
-    replyChain = replyChain.then(() => replyTo(userId, username, trimmed));
+    replyChain = replyChain.then(() => replyTo(userId, username, trimmed, source));
   }, TYPING_SETTLE_MS);
 }
 
 function handleIncomingChat(payload) {
   if (!payload || payload.userId === botUserId) return;
   if (isMuted) return;
+  userMessageCounter.inc();
   const text = (payload.diff && payload.diff.text) || "";
   const userId = payload.userId;
   const username = payload.username || "someone";
@@ -355,6 +355,7 @@ function handleIncomingChat(payload) {
     clearTimeout(checkTimer);
     checkingUserId = null;
     focusUserId = userId;
+    focusSource = "keyword";
     settleThenReply(userId, username, text);
     return;
   }
@@ -390,8 +391,9 @@ function settleThenCheck(userId, username, text) {
       console.log(`relevance check: ${worth ? "YES" : "NO"} — ${username}: "${trimmed.slice(0, 60)}"`);
       if (!worth || focusUserId) return; // stale verdict or someone already grabbed focus
       focusUserId = userId;
+      focusSource = "relevance";
       lastReplyAt = Date.now();
-      replyChain = replyChain.then(() => replyTo(userId, username, trimmed));
+      replyChain = replyChain.then(() => replyTo(userId, username, trimmed, "relevance"));
     })
     .catch((err) => {
       checkingUserId = null;
