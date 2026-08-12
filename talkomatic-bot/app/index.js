@@ -97,6 +97,7 @@ let checkTimer = null;
 let lastCheckAt = 0;
 const history = []; // shared room context: {role, content}
 let replyChain = Promise.resolve(); // serializes outbound replies
+const messageCountTimers = new Map(); // userId -> Timeout
 
 // Raw room chatter fed to the relevance check, distinct from `history`
 // (which only fills from exchanges the bot actually replied to — empty
@@ -335,13 +336,30 @@ function settleThenReply(userId, username, text) {
   }, TYPING_SETTLE_MS);
 }
 
+// Called on every diff for a user; only counts the message once they've
+// gone quiet for TYPING_SETTLE_MS, so a burst of keystrokes counts as one.
+function countSettledMessage(userId, text) {
+  clearTimeout(messageCountTimers.get(userId));
+  if (!text.trim()) {
+    messageCountTimers.delete(userId);
+    return;
+  }
+  messageCountTimers.set(
+    userId,
+    setTimeout(() => {
+      messageCountTimers.delete(userId);
+      userMessageCounter.inc();
+    }, TYPING_SETTLE_MS)
+  );
+}
+
 function handleIncomingChat(payload) {
   if (!payload || payload.userId === botUserId) return;
   if (isMuted) return;
-  userMessageCounter.inc();
   const text = (payload.diff && payload.diff.text) || "";
   const userId = payload.userId;
   const username = payload.username || "someone";
+  countSettledMessage(userId, text);
 
   if (focusUserId) {
     if (focusUserId !== userId) return; // already paying attention to someone else
