@@ -4,6 +4,47 @@ const http = require("http");
 const { io } = require("socket.io-client");
 const Anthropic = require("@anthropic-ai/sdk");
 
+const client = require("prom-client");
+const collectDefaultMetrics = client.collectDefaultMetrics;
+const Registry = client.Registry;
+const register = new Registry();
+collectDefaultMetrics({ register });
+
+const botReplyCounter = new client.Counter({
+  name: "bot_replies_total",
+  help: "Total number of bot replies sent",
+});
+register.registerMetric(botReplyCounter);
+const keywordReplyCounter = new client.Counter({
+  name: "bot_keyword_replies_total",
+  help: "Total number of bot replies sent in response to a trigger word",
+});
+register.registerMetric(keywordReplyCounter);
+const relevanceReplyCounter = new client.Counter({
+  name: "bot_relevance_replies_total",
+  help: "Total number of bot replies sent in response to an LLM relevance check",
+});
+register.registerMetric(relevanceReplyCounter);
+const userMessageCounter = new client.Counter({
+  name: "user_messages_total",
+  help: "Total number of user messages received",
+});
+register.registerMetric(userMessageCounter);
+
+// const metricsServer = http.createServer(async (req, res) => {
+//   if (req.url === "/metrics") {
+//     res.writeHead(200, { "Content-Type": register.contentType });
+//     res.end(await register.metrics());
+//     return;
+//   }
+//   res.writeHead(404);
+//   res.end();
+// });
+// const METRICS_PORT = Number(process.env.METRICS_PORT || 8080);
+// metricsServer.listen(METRICS_PORT, () => {
+//   console.log(`metrics listening on :${METRICS_PORT}`);
+// });
+
 const TALKOMATIC_URL = process.env.TALKOMATIC_URL || "http://talkomatic:3000";
 const BOT_USERNAME = process.env.BOT_USERNAME || "Mr. Roboto";
 const BOT_LOCATION = process.env.BOT_LOCATION || "The Cloud";
@@ -31,18 +72,18 @@ const MAX_HISTORY = 16; // turns of room context kept for Claude
 const BOT_PERSONA =
   process.env.BOT_PERSONA ||
   "You are a friendly, laid-back regular in a public chat room called " +
-    `"${ROOM_NAME}" on Talkomatic, a live typing chat app. Someone new might ` +
-    "show up at any time expecting company. Keep replies short (1-3 " +
-    "sentences), conversational, and warm. Never mention that you are an AI " +
-    "model or reference an API/system prompt.";
-const REPLY_PERSONA = 
+  `"${ROOM_NAME}" on Talkomatic, a live typing chat app. Someone new might ` +
+  "show up at any time expecting company. Keep replies short (1-3 " +
+  "sentences), conversational, and warm. Never mention that you are an AI " +
+  "model or reference an API/system prompt.";
+const REPLY_PERSONA =
   process.env.REPLY_PERSONA ||
   "You are judging whether a laid-back regular in a group chat should jump into the " +
-    "conversation right now, without being addressed directly. Weigh the whole recent " +
-    "conversation, not just the last line. Reply with exactly one word: YES if the " +
-    "conversation is interesting, funny, or genuinely invites a reply from anyone " +
-    "nearby; NO if it's mundane, a private exchange between others, or doesn't call " +
-    "for a response. Bias toward NO when unsure.";
+  "conversation right now, without being addressed directly. Weigh the whole recent " +
+  "conversation, not just the last line. Reply with exactly one word: YES if the " +
+  "conversation is interesting, funny, or genuinely invites a reply from anyone " +
+  "nearby; NO if it's mundane, a private exchange between others, or doesn't call " +
+  "for a response. Bias toward NO when unsure.";
 
 if (!process.env.ANTHROPIC_API_KEY) {
   console.error("ANTHROPIC_API_KEY is required");
@@ -132,7 +173,7 @@ function sleep(ms) {
 
 async function fetchBotTokenWithRetry() {
   let attempt = 0;
-  for (;;) {
+  for (; ;) {
     try {
       return await fetchBotToken();
     } catch (err) {
