@@ -11,22 +11,22 @@ const register = new Registry();
 collectDefaultMetrics({ register });
 
 const botReplyCounter = new client.Counter({
-  name: "bot_replies_total",
+  name: "talkomatic_bot_replies_total",
   help: "Total number of bot replies sent",
 });
 register.registerMetric(botReplyCounter);
 const keywordReplyCounter = new client.Counter({
-  name: "bot_keyword_replies_total",
+  name: "talkomatic_bot_keyword_replies_total",
   help: "Total number of bot replies sent in response to a trigger word",
 });
 register.registerMetric(keywordReplyCounter);
 const relevanceReplyCounter = new client.Counter({
-  name: "bot_relevance_replies_total",
+  name: "talkomatic_bot_relevance_replies_total",
   help: "Total number of bot replies sent in response to an LLM relevance check",
 });
 register.registerMetric(relevanceReplyCounter);
 const userMessageCounter = new client.Counter({
-  name: "user_messages_total",
+  name: "talkomatic_user_messages_total",
   help: "Total number of user messages received",
 });
 register.registerMetric(userMessageCounter);
