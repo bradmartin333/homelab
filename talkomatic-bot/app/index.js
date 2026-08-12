@@ -44,7 +44,7 @@ const TALKOMATIC_API_KEY =
   "tK_public_key_4f8a9b2c7d6e3f1a5g8h9i0j4k5l6m7n8o9p";
 const HEALTH_PORT = Number(process.env.HEALTH_PORT || 8080);
 const TYPING_SETTLE_MS = Number(process.env.TYPING_SETTLE_MS || 2000); // let the focused user finish typing
-const REPLY_COOLDOWN_MS = Number(process.env.REPLY_COOLDOWN_MS || 20000); // min gap between bot replies
+const REPLY_COOLDOWN_MS = Number(process.env.REPLY_COOLDOWN_MS || 2500); // min gap between bot replies
 // Non-trigger messages can still earn a reply via a cheap LLM relevance
 // check. RELEVANCE_CHECK_COOLDOWN_MS bounds how often that check itself
 // runs, separate from REPLY_COOLDOWN_MS which bounds actual replies.
