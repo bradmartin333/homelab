@@ -49,6 +49,14 @@ docker compose build --pull talkomatic-bot
 if ! $CHAT_ONLY; then
   echo "==> starting stack"
   docker compose up -d --remove-orphans
+
+  # `up -d` only recreates a container when its definition changes (image,
+  # env, mounts, ...) — it can't see that prometheus.yml's *contents*
+  # changed on disk, since the bind mount itself is unchanged. Prometheus
+  # only reads that file at startup, so force a restart every run to pick
+  # up scrape-config edits.
+  echo "==> restarting prometheus to pick up prometheus.yml changes"
+  docker compose restart prometheus
 fi
 
 echo "==> forcing talkomatic and talkomatic-bot to pick up the new builds"
