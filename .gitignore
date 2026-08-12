@@ -5,3 +5,5 @@
 .wrangler/
 **/.DS_Store
 node_modules/
+talkomatic-bot/bots/active/*
+!talkomatic-bot/bots/active/.gitkeep

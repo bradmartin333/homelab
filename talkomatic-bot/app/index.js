@@ -1,6 +1,7 @@
 "use strict";
 
 const http = require("http");
+const fs = require("fs");
 const { io } = require("socket.io-client");
 const Anthropic = require("@anthropic-ai/sdk");
 
@@ -31,45 +32,95 @@ const userMessageCounter = new client.Counter({
 });
 register.registerMetric(userMessageCounter);
 
+// Static, per-container settings — fixed for the life of the container
+// (changing these requires a recreate, same as before). Everything a bot
+// *personality* needs (username/persona/model/triggers) lives in `config`
+// below instead, which can be swapped and hot-reloaded without a restart.
 const TALKOMATIC_URL = process.env.TALKOMATIC_URL || "http://talkomatic:3000";
-const BOT_USERNAME = process.env.BOT_USERNAME || "Mr. Roboto";
 const BOT_LOCATION = process.env.BOT_LOCATION || "The Cloud";
 const ROOM_NAME = process.env.ROOM_NAME || "Talkomatic";
-const CLAUDE_MODEL = process.env.CLAUDE_MODEL || "claude-haiku-4-5-20251001";
 const TALKOMATIC_API_KEY =
   process.env.TALKOMATIC_API_KEY ||
   "tK_public_key_4f8a9b2c7d6e3f1a5g8h9i0j4k5l6m7n8o9p";
 const HEALTH_PORT = Number(process.env.HEALTH_PORT || 8080);
 const TYPING_SETTLE_MS = Number(process.env.TYPING_SETTLE_MS || 2000); // let the focused user finish typing
 const REPLY_COOLDOWN_MS = Number(process.env.REPLY_COOLDOWN_MS || 20000); // min gap between bot replies
-const DEFAULT_TRIGGERS = [BOT_USERNAME, BOT_USERNAME.split(/\s+/).pop(), "bot"];
-const TRIGGER_WORDS = (process.env.BOT_TRIGGER_WORDS || DEFAULT_TRIGGERS.join(","))
-  .split(",")
-  .map((w) => w.trim().toLowerCase())
-  .filter(Boolean);
 // Non-trigger messages can still earn a reply via a cheap LLM relevance
 // check. RELEVANCE_CHECK_COOLDOWN_MS bounds how often that check itself
 // runs, separate from REPLY_COOLDOWN_MS which bounds actual replies.
-const RELEVANCE_CHECK_ENABLED = process.env.LLM_RELEVANCE_CHECK !== "false";
+const RELEVANCE_CHECK_ENABLED = process.env.LLM_RELEVANCE_CHECK === "true";
 const RELEVANCE_CHECK_COOLDOWN_MS = Number(process.env.RELEVANCE_CHECK_COOLDOWN_MS || 5000);
 const MAX_REPLY_CHARS = 480; // well under the server's 5000 message cap
 const MAX_HISTORY = 16; // turns of room context kept for Claude
 
-const BOT_PERSONA =
-  process.env.BOT_PERSONA ||
-  "You are a friendly, laid-back regular in a public chat room called " +
-  `"${ROOM_NAME}" on Talkomatic, a live typing chat app. Someone new might ` +
-  "show up at any time expecting company. Keep replies short (1-3 " +
-  "sentences), conversational, and warm. Never mention that you are an AI " +
-  "model or reference an API/system prompt.";
-const REPLY_PERSONA =
-  process.env.REPLY_PERSONA ||
-  "You are judging whether a laid-back regular in a group chat should jump into the " +
-  "conversation right now, without being addressed directly. Weigh the whole recent " +
-  "conversation, not just the last line. Reply with exactly one word: YES if the " +
-  "conversation is interesting, funny, or genuinely invites a reply from anyone " +
-  "nearby; NO if it's mundane, a private exchange between others, or doesn't call " +
-  "for a response. Bias toward NO when unsure.";
+// ── Bot personality (hot-reloadable) ────────────────────────────────────
+//
+// BOT_USERNAME, BOT_PERSONA, REPLY_PERSONA, BOT_TRIGGER_WORDS, and
+// CLAUDE_MODEL are the "which bot am I" params. They're read from
+// process.env at startup like everything else, but if BOT_CONFIG_PATH
+// points at a mounted file, that file's values take priority and are
+// re-read on SIGHUP — so a host-side CLI can drop in a different profile
+// file and signal this container to pick it up live, no restart needed.
+const CONFIG_PATH = process.env.BOT_CONFIG_PATH || null;
+
+function parseEnvFile(path) {
+  if (!path) return {};
+  let raw;
+  try {
+    raw = fs.readFileSync(path, "utf8");
+  } catch {
+    return {};
+  }
+  const out = {};
+  for (const line of raw.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eq = trimmed.indexOf("=");
+    if (eq === -1) continue;
+    const key = trimmed.slice(0, eq).trim();
+    let value = trimmed.slice(eq + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    out[key] = value;
+  }
+  return out;
+}
+
+const config = {};
+
+function loadConfig() {
+  const overrides = parseEnvFile(CONFIG_PATH);
+  const get = (key, fallback) => overrides[key] ?? process.env[key] ?? fallback;
+
+  config.BOT_USERNAME = get("BOT_USERNAME", "Mr. Roboto");
+  config.CLAUDE_MODEL = get("CLAUDE_MODEL", "claude-haiku-4-5-20251001");
+  const defaultTriggers = [config.BOT_USERNAME, config.BOT_USERNAME.split(/\s+/).pop(), "bot"];
+  config.TRIGGER_WORDS = get("BOT_TRIGGER_WORDS", defaultTriggers.join(","))
+    .split(",")
+    .map((w) => w.trim().toLowerCase())
+    .filter(Boolean);
+  config.BOT_PERSONA =
+    get("BOT_PERSONA", "") ||
+    "You are a friendly, laid-back regular in a public chat room called " +
+    `"${ROOM_NAME}" on Talkomatic, a live typing chat app. Someone new might ` +
+    "show up at any time expecting company. Keep replies short (1-3 " +
+    "sentences), conversational, and warm. Never mention that you are an AI " +
+    "model or reference an API/system prompt.";
+  config.REPLY_PERSONA =
+    get("REPLY_PERSONA", "") ||
+    "You are judging whether a laid-back regular in a group chat should jump into the " +
+    "conversation right now, without being addressed directly. Weigh the whole recent " +
+    "conversation, not just the last line. Reply with exactly one word: YES if the " +
+    "conversation is interesting, funny, or genuinely invites a reply from anyone " +
+    "nearby; NO if it's mundane, a private exchange between others, or doesn't call " +
+    "for a response. Bias toward NO when unsure.";
+}
+
+loadConfig();
 
 if (!process.env.ANTHROPIC_API_KEY) {
   console.error("ANTHROPIC_API_KEY is required");
@@ -242,9 +293,9 @@ async function replyTo(userId, username, text, source) {
   try {
     const messages = history[0]?.role === "assistant" ? history.slice(1) : history;
     const response = await anthropic.messages.create({
-      model: CLAUDE_MODEL,
+      model: config.CLAUDE_MODEL,
       max_tokens: 200,
-      system: BOT_PERSONA,
+      system: config.BOT_PERSONA,
       messages,
     });
     reply = response.content
@@ -292,7 +343,7 @@ function clearBotText() {
 // name? Swap or extend this for other cheap heuristics later.
 function matchesTrigger(text) {
   const lower = text.toLowerCase();
-  return TRIGGER_WORDS.some((word) => {
+  return config.TRIGGER_WORDS.some((word) => {
     const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     return new RegExp(`\\b${escaped}\\b`).test(lower);
   });
@@ -304,9 +355,9 @@ function matchesTrigger(text) {
 async function isWorthReplying() {
   try {
     const response = await anthropic.messages.create({
-      model: CLAUDE_MODEL,
+      model: config.CLAUDE_MODEL,
       max_tokens: 4,
-      system: REPLY_PERSONA,
+      system: config.REPLY_PERSONA,
       messages: recentMessages,
     });
     const verdict = response.content
@@ -438,7 +489,7 @@ async function start() {
   socket.on("connect", () => {
     console.log("connected, signing in");
     healthy = false;
-    socket.emit("join lobby", { username: BOT_USERNAME, location: BOT_LOCATION });
+    socket.emit("join lobby", { username: config.BOT_USERNAME, location: BOT_LOCATION });
   });
 
   socket.on("connect_error", (err) => {
@@ -512,6 +563,32 @@ async function start() {
     healthy = false;
   });
 }
+
+// Host-side CLI drops a new profile file at CONFIG_PATH, then sends this
+// container SIGHUP (`docker kill -s HUP <container>`) to pick it up live.
+// Persona/model/trigger changes just take effect on the next call — no
+// action needed. A username change also needs a fresh lobby sign-in, since
+// the server only reads the bot's name off the "join lobby" payload, so
+// force a reconnect for that case.
+process.on("SIGHUP", () => {
+  const prevUsername = config.BOT_USERNAME;
+  loadConfig();
+  console.log(`config reloaded from ${CONFIG_PATH} — now "${config.BOT_USERNAME}"`);
+
+  if (config.BOT_USERNAME === prevUsername || !socket) return;
+
+  console.log(`username changed (${prevUsername} -> ${config.BOT_USERNAME}) — reconnecting`);
+  healthy = false;
+  resetFocus();
+  botUserId = null;
+  roomId = null;
+  botHasText = false;
+  repliedToUserId = null;
+  history.length = 0;
+  recentMessages.length = 0;
+  socket.disconnect();
+  socket.connect();
+});
 
 start().catch((err) => {
   console.error("fatal startup error:", err);
