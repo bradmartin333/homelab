@@ -5,3 +5,7 @@
 .wrangler/
 **/.DS_Store
 node_modules/
+talkomatic-bot/bots/active/*
+!talkomatic-bot/bots/active/.gitkeep
+talkomatic-bot/bots/*.env
+!talkomatic-bot/bots/roboto.env
