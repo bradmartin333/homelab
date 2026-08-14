@@ -104,7 +104,7 @@ on_exit() {
     hc_fail
   fi
 }
-trap on_exit EXIT
+trap on_exit EXIT TERM
 
 # If sdb failed to mount, /srv/docker-data is a bare directory on the root
 # filesystem — the databases would be missing and restic would write its repo
