@@ -6,4 +6,17 @@ Requires=docker.service
 
 [Service]
 Type=oneshot
+# Explicit, even though `no` is the default: an earlier version of this unit set
+# RemainAfterExit=yes, which left the service `active (exited)` after every
+# successful run. systemd will not recompute a timer's next trigger while the
+# unit it triggers is still active, so the timer fired exactly once (2026-08-08)
+# and then sat at `Trigger: n/a` for five days. Backups stopped silently.
+RemainAfterExit=no
+# Type=oneshot defaults TimeoutStartSec to infinity — every other service type
+# would give up after 90s. Without this, one hung B2 copy wedges the timer
+# forever, which is the same failure as above by a different route. On timeout
+# systemd kills the script; the EXIT trap still fires the healthchecks.io /fail
+# ping, and the timer reschedules normally. Raise this if a real run ever
+# legitimately approaches it.
+TimeoutStartSec=4h
 ExecStart=/opt/homelab/scripts/backup.sh
