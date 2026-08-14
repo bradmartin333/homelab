@@ -15,13 +15,32 @@ scrape_configs:
     static_configs:
       - targets: ["cloudflared:20241"]
 
+  # Immich's OTEL exporter encodes the subject in the metric NAME rather than
+  # in labels - immich_jobs_ocr_failed_total, immich_asset_repository_get_by_id_duration.
+  # rate() strips __name__, so a dashboard can't group by it; lift the parts we
+  # chart into real labels here instead. Anchored + shared by both workers so
+  # the two job definitions can't drift apart.
   - job_name: immich-api
     static_configs:
       - targets: ["immich-server:8081"]
+    metric_relabel_configs: &immich_metric_relabel
+      - source_labels: [__name__]
+        regex: 'immich_jobs_(.+)_(?:success|failed|skipped)_total'
+        target_label: immich_job
+        replacement: '$1'
+      - source_labels: [__name__]
+        regex: 'immich_(.+)_repository_(.+)_duration_(?:bucket|sum|count)'
+        target_label: immich_repo
+        replacement: '$1'
+      - source_labels: [__name__]
+        regex: 'immich_(.+)_repository_(.+)_duration_(?:bucket|sum|count)'
+        target_label: immich_op
+        replacement: '$2'
 
   - job_name: immich-microservices
     static_configs:
       - targets: ["immich-server:8082"]
+    metric_relabel_configs: *immich_metric_relabel
 
   - job_name: vikunja
     metrics_path: /api/v1/metrics
