@@ -94,8 +94,10 @@ unlock_stale() {
 # see docs/operations.md.
 STATUS_FILE="$STAGING/last-run-status"
 hc_fail() { [ -n "$HC_UUID" ] || return 0; curl -fsS -m 10 --retry 3 "https://hc-ping.com/$HC_UUID/fail" >/dev/null || true; }
+_TERM_RECEIVED=0
 on_exit() {
   local rc=$?
+  [ "$_TERM_RECEIVED" -eq 1 ] && rc=1
   mkdir -p "$(dirname "$STATUS_FILE")"
   if [ "$rc" -eq 0 ]; then
     printf 'ok %s\n' "$(date -Iseconds)" > "$STATUS_FILE"
@@ -103,8 +105,14 @@ on_exit() {
     printf 'fail %s\n' "$(date -Iseconds)" > "$STATUS_FILE"
     hc_fail
   fi
+  if [ "$_TERM_RECEIVED" -eq 1 ]; then
+    trap - TERM
+    kill -TERM $$
+  fi
 }
-trap on_exit EXIT TERM
+on_term() { _TERM_RECEIVED=1; exit 1; }
+trap on_exit EXIT
+trap on_term TERM
 
 # If sdb failed to mount, /srv/docker-data is a bare directory on the root
 # filesystem — the databases would be missing and restic would write its repo
