@@ -68,6 +68,25 @@ IMMICH_DB_USER=$(env_value "$REPO_DIR/immich/.env" DB_USERNAME)
 exec 9>/run/homelab-backup.lock
 flock -n 9 || { echo "error: another backup is already running" >&2; exit 1; }
 
+# Clear locks left behind by a run that died mid-flight — killed, OOM'd, or
+# interrupted by hand. restic locks live in the repo, not in memory, so nothing
+# releases them when the process goes away, and every later run fails at the
+# same step until someone intervenes.
+#
+# Plain `unlock` is the safe form: it only removes locks older than restic's
+# staleness window that were created on this host by a PID that no longer
+# exists. It will not touch a lock a running restic holds. Never use
+# --remove-all here — that deletes live locks too, and a nightly job that does
+# so unattended will eventually corrupt a repo mid-write. The flock above
+# already rules out a second backup of ours competing for these.
+#
+# This is quiet when there is nothing to clear. If it starts reporting removed
+# locks every night, that means runs are dying and the next run is papering
+# over it — go read the journal rather than letting it scroll past.
+unlock_stale() {
+  restic -r "$1" --password-file "$PASSFILE" unlock
+}
+
 # Ping the dead man's switch immediately on failure rather than letting the
 # check time out hours later. The healthchecks.io check is configured with a
 # 1-day period plus a few hours' grace, so silence means "the job stopped
@@ -75,8 +94,10 @@ flock -n 9 || { echo "error: another backup is already running" >&2; exit 1; }
 # see docs/operations.md.
 STATUS_FILE="$STAGING/last-run-status"
 hc_fail() { [ -n "$HC_UUID" ] || return 0; curl -fsS -m 10 --retry 3 "https://hc-ping.com/$HC_UUID/fail" >/dev/null || true; }
+_TERM_RECEIVED=0
 on_exit() {
   local rc=$?
+  [ "$_TERM_RECEIVED" -eq 1 ] && rc=1
   mkdir -p "$(dirname "$STATUS_FILE")"
   if [ "$rc" -eq 0 ]; then
     printf 'ok %s\n' "$(date -Iseconds)" > "$STATUS_FILE"
@@ -84,8 +105,14 @@ on_exit() {
     printf 'fail %s\n' "$(date -Iseconds)" > "$STATUS_FILE"
     hc_fail
   fi
+  if [ "$_TERM_RECEIVED" -eq 1 ]; then
+    trap - TERM
+    kill -TERM $$
+  fi
 }
+on_term() { _TERM_RECEIVED=1; exit 1; }
 trap on_exit EXIT
+trap on_term TERM
 
 # If sdb failed to mount, /srv/docker-data is a bare directory on the root
 # filesystem — the databases would be missing and restic would write its repo
@@ -158,6 +185,7 @@ else
        "the Immich library may be getting swept into this backup" >&2
 fi
 
+unlock_stale "$LOCAL_REPO"
 restic -r "$LOCAL_REPO" --password-file "$PASSFILE" \
   backup --tag nightly "${EXCLUDES[@]}" "${SOURCES[@]}"
 restic -r "$LOCAL_REPO" --password-file "$PASSFILE" forget --tag nightly \
@@ -167,6 +195,7 @@ restic -r "$LOCAL_REPO" --password-file "$PASSFILE" check
 # Mirror onto the array. Same disk-local speed as the source, so this keeps the
 # same retention as LOCAL_REPO and prunes every night — none of the B2 cost
 # reasoning applies here.
+unlock_stale "$ARRAY_REPO"
 restic -r "$ARRAY_REPO" --password-file "$PASSFILE" copy --tag nightly \
   --from-repo "$LOCAL_REPO" --from-password-file "$PASSFILE"
 restic -r "$ARRAY_REPO" --password-file "$PASSFILE" forget --tag nightly \
@@ -178,6 +207,11 @@ set -a
 . "$B2_ENV"
 set +a
 : "${RESTIC_B2_REPO:?not set in $B2_ENV}"
+
+# This is the one that matters most in practice: B2 is the slowest step, so it
+# is where an interrupted run is most likely to leave a lock behind — as it did
+# on 2026-08-11, blocking every manual run afterwards.
+unlock_stale "$RESTIC_B2_REPO"
 
 # Both repos share $PASSFILE — copy needs to unlock the source and the target,
 # and one password is one fewer thing to lose.

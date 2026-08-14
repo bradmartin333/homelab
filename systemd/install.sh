@@ -20,6 +20,25 @@ done
 
 sudo systemctl daemon-reload
 
+# A oneshot left in `active (exited)` blocks its own timer permanently: systemd
+# will not compute a next trigger while the triggered unit is still active. That
+# is not something restarting the timer below can fix — the timer recomputes,
+# sees its service active, and goes straight back to `Trigger: n/a`. Only
+# returning the service to inactive clears it.
+#
+# This is how homelab-backup silently stopped for five days in Aug 2026: an old
+# unit file set RemainAfterExit=yes, so the service never went inactive after a
+# successful run.
+for unit in "${services[@]}"; do
+  name=$(basename "$unit")
+  # Oneshots only — stopping a genuinely long-running service here would be a
+  # nasty surprise for whoever adds one to this directory later.
+  [ "$(systemctl show -p Type --value "$name" 2>/dev/null)" = "oneshot" ] || continue
+  [ "$(systemctl is-active "$name" 2>/dev/null || true)" = "active" ] || continue
+  echo "note: $name was left active after exiting — stopping it so its timer can reschedule"
+  sudo systemctl stop "$name"
+done
+
 # Timers: enable + restart unconditionally. `enable --now` only starts a timer
 # that isn't already active — if it's already active (e.g. reinstalling this
 # script), that's a no-op and it won't recompute NextElapseUSecRealtime.
