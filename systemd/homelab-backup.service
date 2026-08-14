@@ -19,4 +19,13 @@ RemainAfterExit=no
 # ping, and the timer reschedules normally. Raise this if a real run ever
 # legitimately approaches it.
 TimeoutStartSec=4h
+# systemd does not set $HOME for root system services (it only populates
+# HOME/USER/LOGNAME when User= is given), so restic cannot find its default
+# cache location and falls back to running cacheless — re-fetching repo index
+# and metadata on every operation. Correct, but on B2 that is egress, the one
+# thing the free tier actually bills for; see the cost note in backup.sh.
+# CacheDirectory= creates and persists /var/cache/restic with the right
+# ownership, which is tidier than pointing HOME at /root.
+CacheDirectory=restic
+Environment=RESTIC_CACHE_DIR=/var/cache/restic
 ExecStart=/opt/homelab/scripts/backup.sh
