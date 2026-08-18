@@ -27,14 +27,12 @@ services:
       # Email fires only when a scan actually updates or fails a container -
       # WATCHTOWER_NOTIFICATION_REPORT renders to nothing (no email) on a
       # run with zero updates and zero failures.
-      WATCHTOWER_NOTIFICATIONS: "email"
       WATCHTOWER_NOTIFICATION_REPORT: "true"
-      WATCHTOWER_NOTIFICATION_EMAIL_FROM: "${WATCHTOWER_SMTP_USER}"
-      WATCHTOWER_NOTIFICATION_EMAIL_TO: "bradmartin333@gmail.com"
-      WATCHTOWER_NOTIFICATION_EMAIL_SERVER: "smtp.gmail.com"
-      WATCHTOWER_NOTIFICATION_EMAIL_SERVER_PORT: "587"
-      WATCHTOWER_NOTIFICATION_EMAIL_SERVER_USER: "${WATCHTOWER_SMTP_USER}"
-      WATCHTOWER_NOTIFICATION_EMAIL_SERVER_PASSWORD: "${WATCHTOWER_SMTP_PASSWORD}"
+      # Shoutrrr URL form, not the legacy WATCHTOWER_NOTIFICATION_EMAIL_* vars
+      # - those are deprecated and log a warning on every startup. The full
+      # smtp:// URL (including the percent-encoded "@" in the username) lives
+      # in .env since it embeds the Gmail app password.
+      WATCHTOWER_NOTIFICATION_URL: "${WATCHTOWER_NOTIFICATION_URL}"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
