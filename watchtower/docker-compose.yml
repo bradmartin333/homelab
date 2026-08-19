@@ -4,6 +4,13 @@ services:
     container_name: watchtower
     restart: unless-stopped
     security_opt: [no-new-privileges:true]
+    # SMTP creds for notifications. The nickfedor/watchtower image is
+    # distroless (no /bin/sh), so there's no way to remap another app's
+    # env var names into watchtower's expected ones at container start -
+    # unlike postgres-exporter's entrypoint trick, this has to be its own
+    # .env with watchtower's exact var names, even though the value is the
+    # same Gmail app password already used in vikunja/.env.
+    env_file: .env
     environment:
       WATCHTOWER_LABEL_ENABLE: "true"
       WATCHTOWER_CLEANUP: "true"
@@ -17,6 +24,15 @@ services:
       # It exists only because Watchtower's metrics feature requires a token
       # to enable at all. Must match monitoring/prometheus/prometheus.yml.
       WATCHTOWER_HTTP_API_TOKEN: "b54c8dd5dbbfd4cdcaa58e3f8a6a0aea"
+      # Email fires only when a scan actually updates or fails a container -
+      # WATCHTOWER_NOTIFICATION_REPORT renders to nothing (no email) on a
+      # run with zero updates and zero failures.
+      WATCHTOWER_NOTIFICATION_REPORT: "true"
+      # Shoutrrr URL form, not the legacy WATCHTOWER_NOTIFICATION_EMAIL_* vars
+      # - those are deprecated and log a warning on every startup. The full
+      # smtp:// URL (including the percent-encoded "@" in the username) lives
+      # in .env since it embeds the Gmail app password.
+      # WATCHTOWER_NOTIFICATION_URL is injected via env_file (.env)
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     networks:

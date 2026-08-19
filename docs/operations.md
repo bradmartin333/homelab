@@ -42,6 +42,11 @@ now" view — dashboards for traefik, postgres, immich, cadvisor, node-exporter,
 watchtower, and the cloudflare tunnel. It is not an alerting layer; it runs on
 the same box, so it goes down with everything else.
 
+**Watchtower email.** `WATCHTOWER_NOTIFICATION_REPORT` means an email only
+goes out when a scan actually updates or fails a container — silent on a
+normal night. Reuses Vikunja's Gmail SMTP creds; recipient(s) are configured
+via `toAddresses` in `WATCHTOWER_NOTIFICATION_URL`.
+
 ## Cadence
 
 **Nightly, automatic**
