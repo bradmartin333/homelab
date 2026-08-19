@@ -47,6 +47,23 @@ echo "==> rebuilding talkomatic-bot from local source"
 docker compose build --pull talkomatic-bot
 
 if ! $CHAT_ONLY; then
+  # Every service pins a fixed container_name, but that name is global to the
+  # Docker daemon, not scoped to this compose project. Running `docker
+  # compose` from inside a service's own subdirectory (e.g. to test one
+  # service in isolation) creates a container under a *different* project
+  # that still claims the same name, so a later `up -d` here fails with a
+  # name conflict instead of recreating it. Clear any such stray containers
+  # first so redeploys are self-healing regardless of how the name got taken.
+  echo "==> clearing stray containers left by out-of-project compose runs"
+  IN_PROJECT="$(docker compose ps -aq)"
+  docker compose config | sed -n 's/^[[:space:]]*container_name: *//p' | while read -r name; do
+    cid="$(docker ps -aq -f "name=^${name}$")"
+    if [ -n "$cid" ] && ! grep -qx "$cid" <<<"$IN_PROJECT"; then
+      echo "  removing stray container: $name ($cid)"
+      docker rm -f "$cid"
+    fi
+  done
+
   echo "==> starting stack"
   docker compose up -d --remove-orphans
 

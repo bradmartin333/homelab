@@ -67,8 +67,18 @@ services:
       - /sys:/sys:ro
       - /var/lib/docker:/var/lib/docker:ro
       - /dev/disk:/dev/disk:ro
-    devices:
-      - /dev/kmsg
+    # No /dev/kmsg device mount - it existed only for oom_event detection,
+    # which errored anyway ("operation not permitted") and is disabled
+    # below along with every other metric family the dashboard doesn't use.
+    # The containers.json dashboard only ever charts cpu/memory/network/
+    # start_time (grep the panel exprs to confirm), and Prometheus only
+    # scrapes this every 30s - the defaults (1s housekeeping, every metric
+    # family, plus walking every non-Docker cgroup) were costing 8-15% CPU
+    # for data nothing reads. This trims cadvisor to what's actually used.
+    command:
+      - "--docker_only=true"
+      - "--housekeeping_interval=30s"
+      - "--disable_metrics=app,cpu_topology,disk,diskIO,hugetlb,memory_numa,oom_event,percpu,perf_event,pressure,referenced_memory,resctrl,sched,tcp,udp"
     networks:
       - monitoring_internal
     labels:
