@@ -32,7 +32,7 @@ services:
       # - those are deprecated and log a warning on every startup. The full
       # smtp:// URL (including the percent-encoded "@" in the username) lives
       # in .env since it embeds the Gmail app password.
-      WATCHTOWER_NOTIFICATION_URL: "${WATCHTOWER_NOTIFICATION_URL}"
+      # WATCHTOWER_NOTIFICATION_URL is injected via env_file (.env)
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
