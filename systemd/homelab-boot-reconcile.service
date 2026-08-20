@@ -1,0 +1,21 @@
+[Unit]
+Description=Start any homelab container that failed to come up at boot
+Wants=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+# Explicit, matching homelab-backup.service: a oneshot left `active (exited)`
+# is the failure mode that silently stopped backups for five days in Aug 2026.
+# Nothing triggers this unit on a timer today, but install.sh treats every
+# oneshot in this directory the same way, so keep it inactive after it exits.
+RemainAfterExit=no
+# Type=oneshot defaults TimeoutStartSec to infinity. This unit runs as part of
+# the boot transaction, so a wedged `docker compose up` would hang the boot
+# rather than just failing — bound it.
+TimeoutStartSec=10min
+ExecStart=/opt/homelab/scripts/boot-reconcile.sh
+
+[Install]
+WantedBy=multi-user.target

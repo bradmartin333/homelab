@@ -188,6 +188,7 @@ death reports as all-green.
 | B2 usage climbing fast                     | Bucket lifecycle keeping old versions | B2 console → bucket → Lifecycle → "keep only the last version"           |
 | Immich DB growing steadily                 | CLIP embeddings scale with photo count | Expected; it's the only part of the backup with real growth in it       |
 | Machine stays off after an outage          | BIOS AC-restore lost (dead CMOS battery) | Reset it in BIOS on the next visit                                    |
+| Containers exited after an auto-reboot     | Bound to the tailnet IP before tailscaled had assigned it | `journalctl -u homelab-boot-reconcile -b` |
 | Backup service "never ran" but timer fired | `RemainAfterExit=yes` on the oneshot | Must stay absent — see [`../systemd/`](../systemd/homelab-backup.service) |
 
 ## Adding an app

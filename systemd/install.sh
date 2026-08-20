@@ -39,6 +39,16 @@ for unit in "${services[@]}"; do
   sudo systemctl stop "$name"
 done
 
+# Services are symlinked above but not enabled by that alone. Only enable the
+# ones that actually declare an [Install] section — homelab-backup.service
+# deliberately has none, since its timer starts it and enabling it directly
+# would run a backup on every boot. Keyed on the section rather than a name
+# list so the next boot-time unit dropped in here just works.
+for unit in "${services[@]}"; do
+  grep -q '^\[Install\]' "$unit" || continue
+  sudo systemctl enable "$(basename "$unit")"
+done
+
 # Timers: enable + restart unconditionally. `enable --now` only starts a timer
 # that isn't already active — if it's already active (e.g. reinstalling this
 # script), that's a no-op and it won't recompute NextElapseUSecRealtime.
