@@ -42,10 +42,13 @@ now" view — dashboards for traefik, postgres, immich, cadvisor, node-exporter,
 watchtower, and the cloudflare tunnel. It is not an alerting layer; it runs on
 the same box, so it goes down with everything else.
 
-**Watchtower email.** `WATCHTOWER_NOTIFICATION_REPORT` means an email only
-goes out when a scan actually updates or fails a container — silent on a
-normal night. Reuses Vikunja's Gmail SMTP creds; recipient(s) are configured
-via `toAddresses` in `WATCHTOWER_NOTIFICATION_URL`.
+**Watchtower email.** A custom `WATCHTOWER_NOTIFICATION_TEMPLATE` (guarded on
+`.Updated`/`.Failed`/`.Restarted`) means an email only goes out when a scan
+actually updates, fails, or restarts a container — silent on a normal night.
+`WATCHTOWER_NOTIFICATION_REPORT` alone does not do this; it only supplies the
+structured report data the template renders from. Reuses Vikunja's Gmail SMTP
+creds; recipient(s) are configured via `toAddresses` in
+`WATCHTOWER_NOTIFICATION_URL`.
 
 ## Cadence
 
@@ -185,6 +188,7 @@ death reports as all-green.
 | B2 usage climbing fast                     | Bucket lifecycle keeping old versions | B2 console → bucket → Lifecycle → "keep only the last version"           |
 | Immich DB growing steadily                 | CLIP embeddings scale with photo count | Expected; it's the only part of the backup with real growth in it       |
 | Machine stays off after an outage          | BIOS AC-restore lost (dead CMOS battery) | Reset it in BIOS on the next visit                                    |
+| Containers exited after an auto-reboot     | Bound to the tailnet IP before tailscaled had assigned it | `journalctl -u homelab-boot-reconcile -b` |
 | Backup service "never ran" but timer fired | `RemainAfterExit=yes` on the oneshot | Must stay absent — see [`../systemd/`](../systemd/homelab-backup.service) |
 
 ## Adding an app

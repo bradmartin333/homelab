@@ -24,10 +24,34 @@ services:
       # It exists only because Watchtower's metrics feature requires a token
       # to enable at all. Must match monitoring/prometheus/prometheus.yml.
       WATCHTOWER_HTTP_API_TOKEN: "b54c8dd5dbbfd4cdcaa58e3f8a6a0aea"
-      # Email fires only when a scan actually updates or fails a container -
-      # WATCHTOWER_NOTIFICATION_REPORT renders to nothing (no email) on a
-      # run with zero updates and zero failures.
+      # WATCHTOWER_NOTIFICATION_REPORT only controls what data the notification
+      # template receives (a structured session report vs. raw log lines) - it
+      # does NOT by itself suppress the email on a no-op run. Left on because
+      # the custom template below needs .Updated/.Failed/.Restarted/.Fresh.
       WATCHTOWER_NOTIFICATION_REPORT: "true"
+      # Email fires only when a scan actually updates, fails, or restarts a
+      # container. The whole template is wrapped in this if-guard so a run
+      # with none of those renders to an empty string, and shoutrrr sends
+      # nothing when the rendered template is empty.
+      WATCHTOWER_NOTIFICATION_TEMPLATE: |
+        {{- if ( or .Updated .Failed .Restarted ) -}}
+        {{len .Scanned}} Scanned, {{len .Updated}} Updated, {{len .Restarted}} Restarted, {{len .Failed}} Failed
+        {{- range .Updated}}
+        - {{.Name}} ({{.ImageName}}): {{.CurrentImageID.ShortID}} updated to {{.LatestImageID.ShortID}}
+        {{- end -}}
+        {{- range .Fresh}}
+        - {{.Name}} ({{.ImageName}}): {{.State}}
+        {{- end -}}
+        {{- range .Restarted}}
+        - {{.Name}} ({{.ImageName}}): {{.State}}
+        {{- end -}}
+        {{- range .Skipped}}
+        - {{.Name}} ({{.ImageName}}): {{.State}}: {{.Error}}
+        {{- end -}}
+        {{- range .Failed}}
+        - {{.Name}} ({{.ImageName}}): {{.State}}: {{.Error}}
+        {{- end -}}
+        {{- end -}}
       # Shoutrrr URL form, not the legacy WATCHTOWER_NOTIFICATION_EMAIL_* vars
       # - those are deprecated and log a warning on every startup. The full
       # smtp:// URL (including the percent-encoded "@" in the username) lives
