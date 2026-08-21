@@ -55,6 +55,17 @@ Immich on the LAN. Verify after any change anyway:
 docker port immich-server 2283     # expect <ip>:2283, not 0.0.0.0:2283
 ```
 
+`cannot assign requested address` has a second, unrelated cause: at boot,
+dockerd restores containers before tailscaled has put the address on
+`tailscale0`, so every service binding `${TAILSCALE_IP}` — vikunja,
+immich-server, grafana, prometheus — fails to start. On the 2026-08-20
+auto-reboot dockerd lost that race by 1.5 seconds and all four stayed down
+until someone noticed, because a restart policy does not retry a container
+that failed to *start* during daemon restore. `homelab-boot-reconcile.service`
+now waits for the address and brings them up; if this symptom appears after a
+reboot, read `journalctl -u homelab-boot-reconcile -b` before touching any
+`.env`.
+
 ## cloudflared is not on watchtower
 
 Watchtower runs in label-enable mode — only containers carrying
