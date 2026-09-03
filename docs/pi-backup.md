@@ -34,8 +34,11 @@ script or doc changes needed when that happens, just a new Tailscale IP.
   Currently HFS+-formatted from a prior life as a Mac backup drive
   (`BackupDrive2`) and **will be wiped** in step 1 below. At current usage
   (~70GB Immich library + a few hundred MB of everything else), 500GB has
-  plenty of headroom for history via restic's retention/pruning; revisit if
-  the Immich library grows close to it.
+  plenty of headroom for history via restic's retention/pruning.
+  `healthcheck.sh` warns at ~85% of the drive (`PI_WARN_BYTES`) so this
+  doesn't have to be tracked by hand — **but that threshold is hardcoded to
+  today's 500GB drive** and needs updating in `healthcheck.sh` if the drive
+  is ever swapped for a bigger one.
 - **sudo on the Pi requires a password**, same as the tower — none of the
   steps below can be run unattended from a laptop. Run them at the Pi's
   terminal or over `ssh brad@pi-backup` with the password in hand.
