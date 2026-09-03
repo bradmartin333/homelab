@@ -33,13 +33,14 @@ against fire, theft, or the house itself.
   to the tailnet already. Reachable as `brad@pi-backup` (Tailscale MagicDNS)
   or by IP — check `tailscale status` on the tower if the hostname doesn't
   resolve; re-auth can change the IP.
-- **SSD:** 500GB (not the 2TB originally planned — that's a someday upgrade),
+- **SSD:** 500GB (not the 2TB originally planned — a likely future upgrade),
   mounted at `/mnt/offsite` as `ext4`. At current usage (~68GB Immich library
   + a few hundred MB of everything else), 500GB has plenty of headroom for
-  history via restic's retention/pruning. `healthcheck.sh` warns at ~85% of
-  the drive (`PI_WARN_BYTES`) so this doesn't have to be tracked by hand —
-  **but that threshold is hardcoded to today's 500GB drive** and needs
-  updating in `healthcheck.sh` if the drive is ever swapped for a bigger one.
+  history via restic's retention/pruning. `healthcheck.sh` warns at 85% of
+  the drive's capacity, read from `PI_DISK_BYTES` in `/root/.restic-pi.env`
+  (see [step 4](#setup) below) rather than hardcoded in the script — swapping
+  the drive later is a one-line edit to that file on the tower, no code
+  change, commit, or deploy needed.
 - **sudo on the Pi requires a password**, same as the tower — none of the
   steps below can be run unattended from a laptop. Run them at the Pi's
   terminal or over `ssh brad@pi-backup` with the password in hand.
@@ -149,15 +150,21 @@ sudo -E restic -r rest:http://<PI_TS_IP>:8000/homelab-backup/ \
 request comes back `401 Unauthorized` with no other clue why.
 
 **4. Drop the Pi's credentials on the tower**, outside the git repo like
-`/root/.restic-b2.env`:
+`/root/.restic-b2.env`. `PI_DISK_BYTES` is the SSD's raw capacity — get it
+from the Pi with `df -B1 --output=size /mnt/offsite | tail -1` (not `df -h`;
+this needs the exact byte count, not a rounded human-readable size):
 ```bash
 install -m 600 /dev/null /root/.restic-pi.env
 cat > /root/.restic-pi.env <<'EOF'
 PI_REPO=rest:http://<PI_TS_IP>:8000/homelab-backup/
 RESTIC_REST_USERNAME=homelab-backup
 RESTIC_REST_PASSWORD=<htpasswd-password>
+PI_DISK_BYTES=<bytes from df -B1 above>
 EOF
 ```
+Swapping the SSD later is exactly this step re-run with the new drive's byte
+count — nothing in `healthcheck.sh` needs to change.
+
 `scripts/backup.sh` looks for this file and skips the Pi leg cleanly if it's
 absent — the block was added ahead of the physical setup on purpose, so
 wiring it into the script and actually finishing the Pi don't have to land in

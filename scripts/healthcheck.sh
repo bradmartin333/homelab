@@ -34,11 +34,12 @@ MAX_SNAPSHOT_AGE_DAYS=2
 # Backblaze gives 10 GB free. Warn with headroom left to trim retention before
 # the bill starts rather than after.
 B2_WARN_BYTES=$((8 * 1024 * 1024 * 1024))
-# The Pi's SSD is 500GB (~458GiB usable, confirmed via `df -h /mnt/offsite`
-# on the Pi) — unlike B2 this isn't a hard external limit, just what's
-# physically installed today. Update this if the drive is ever swapped for a
-# bigger one (see docs/pi-backup.md#current-state).
-PI_WARN_BYTES=$((389 * 1024 * 1024 * 1024)) # ~85% of 458GiB
+# 85% of whatever's physically installed on the Pi's SSD today — unlike B2
+# this isn't a hard external limit. PI_DISK_BYTES lives in $PI_ENV (not
+# hardcoded here) specifically so swapping the drive is a one-line edit on
+# the box, not a script change: `df -B1 --output=size /mnt/offsite | tail -1`
+# on the Pi gives the value to put there. See docs/pi-backup.md#current-state.
+PI_WARN_PCT=85
 
 ok()   { printf '  \033[32m✓\033[0m %s\n' "$1"; }
 bad()  { printf '  \033[31m✗\033[0m %s\n' "$1"; }
@@ -179,10 +180,17 @@ if [ -f "$PI_ENV" ]; then
       | grep -o '"total_size":[0-9]*' | cut -d: -f2)
     if [ -z "$pi_used" ]; then
       warn "could not read Pi repo size"
-    elif [ "$pi_used" -ge "$PI_WARN_BYTES" ]; then
-      warn "Pi repo $(numfmt --to=iec "$pi_used") — approaching the 500GB SSD's capacity, trim retention or grow the drive"
+    elif [ -z "${PI_DISK_BYTES:-}" ]; then
+      warn "Pi repo $(numfmt --to=iec "$pi_used") — PI_DISK_BYTES not set in" \
+           "$PI_ENV, cannot check capacity (see docs/pi-backup.md#current-state)"
     else
-      ok "Pi repo $(numfmt --to=iec "$pi_used") of ~458G SSD"
+      pi_warn_bytes=$(( PI_DISK_BYTES * PI_WARN_PCT / 100 ))
+      if [ "$pi_used" -ge "$pi_warn_bytes" ]; then
+        warn "Pi repo $(numfmt --to=iec "$pi_used") of $(numfmt --to=iec "$PI_DISK_BYTES") SSD —" \
+             "trim retention in backup.sh or grow the drive"
+      else
+        ok "Pi repo $(numfmt --to=iec "$pi_used") of $(numfmt --to=iec "$PI_DISK_BYTES") SSD"
+      fi
     fi
   else
     bad "PI_REPO not set in $PI_ENV"

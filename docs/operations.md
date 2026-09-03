@@ -192,7 +192,7 @@ death reports as all-green.
 | App broke overnight                        | Watchtower pulled a bad patch        | `docker logs watchtower`; pin the previous tag                            |
 | Array shows `[U_]` instead of `[UU]`       | A mirror member dropped or failed    | `cat /proc/mdstat`, then [replace it](storage-and-backup.md#replacing-a-failed-raid1-member) |
 | B2 usage climbing fast                     | Bucket lifecycle keeping old versions | B2 console → bucket → Lifecycle → "keep only the last version"           |
-| Pi repo approaching the SSD's capacity     | Immich library growth, or retention never pruning | `sudo scripts/healthcheck.sh` reports it (`PI_WARN_BYTES`, ~85%) — trim retention in `backup.sh` or grow the drive |
+| Pi repo approaching the SSD's capacity     | Immich library growth, or retention never pruning | `sudo scripts/healthcheck.sh` reports it (85% of `PI_DISK_BYTES` in `/root/.restic-pi.env`) — trim retention in `backup.sh` or grow the drive |
 | Immich DB growing steadily                 | CLIP embeddings scale with photo count | Expected; it's the only part of the backup with real growth in it       |
 | Machine stays off after an outage          | BIOS AC-restore lost (dead CMOS battery) | Reset it in BIOS on the next visit                                    |
 | Containers exited after an auto-reboot     | Bound to the tailnet IP before tailscaled had assigned it | `journalctl -u homelab-boot-reconcile -b` |
