@@ -177,7 +177,7 @@ if [ -f "$PI_ENV" ]; then
     # means (a fixed free-tier limit there, physical disk space here).
     pi_used=$(restic -r "$PI_REPO" --password-file "$PASSFILE" \
       stats --mode raw-data --json 2>/dev/null \
-      | grep -o '"total_size":[0-9]*' | cut -d: -f2)
+      | grep -o '"total_size":[0-9]*' | cut -d: -f2 || true)
     if [ -z "$pi_used" ]; then
       warn "could not read Pi repo size"
     elif [ -z "${PI_DISK_BYTES:-}" ]; then

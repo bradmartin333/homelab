@@ -283,9 +283,9 @@ Order matters:
     Pi replica (see [`pi-backup.md`](pi-backup.md) for current status) into
     `$UPLOAD_LOCATION`:
     ```bash
-    set -a; . /root/.restic-pi.env; set +a
-    sudo restic -r "$PI_REPO" --password-file /root/.restic-password \
-      restore latest --target / --include "$UPLOAD_LOCATION"
+    sudo bash -c 'set -a; . /root/.restic-pi.env; set +a; \
+      restic -r "$PI_REPO" --password-file /root/.restic-password \
+      restore latest --target / --include "$UPLOAD_LOCATION"'
     ```
     then have Immich rescan. Thumbnails and encoded video regenerate on their
     own.
@@ -392,9 +392,9 @@ A backup you've never restored is a hypothesis. Twice a year:
    day-to-day check (`scripts/pi-verify.sh`). Twice a year, also do an actual
    restore:
    ```bash
-   set -a; . /root/.restic-pi.env; set +a
-   sudo restic -r "$PI_REPO" --password-file /root/.restic-password \
-     restore latest --target /tmp/pi-restore-test --include "$UPLOAD_LOCATION"
+   sudo bash -c 'set -a; . /root/.restic-pi.env; set +a; \
+     restic -r "$PI_REPO" --password-file /root/.restic-password \
+     restore latest --target /tmp/pi-restore-test --include "$UPLOAD_LOCATION"'
    # restic preserves the full original path under --target, so the restored
    # tree lands at /tmp/pi-restore-test$UPLOAD_LOCATION
    diff -rq "/tmp/pi-restore-test$UPLOAD_LOCATION" "$UPLOAD_LOCATION"   # should print nothing

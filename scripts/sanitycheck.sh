@@ -30,7 +30,7 @@ printf 'backblaze:          %s\n' "$b2_t"
 # same snapshot as the other three — reported alongside them, not held to the
 # identical-snapshot bar below. scripts/pi-verify.sh is the real check for it.
 if [ -n "${PI_REPO:-}" ]; then
-  pi_t=$(latest_time "$PI_REPO")
+  pi_t=$(latest_time "$PI_REPO" 2>/dev/null || true)
   printf 'pi:                 %s\n' "${pi_t:-unreachable}"
 fi
 
