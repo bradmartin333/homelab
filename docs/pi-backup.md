@@ -17,21 +17,15 @@ second independent copy.
 **Scope: back up everything, not just photos.** Configs, Postgres dumps,
 Vikunja files, and the photo library all go to the Pi.
 
-**Caveat: this is not yet an offsite copy.** The Pi currently lives in the
-same house as the tower — it protects against `sdb`/`md0` failing or B2
-becoming unreachable, but not against fire, theft, or anything that takes out
-the whole house, which is what "offsite" is supposed to buy you. Both
-`storage-and-backup.md` and `restore.md` call this out explicitly rather than
-implying the Immich library is now disaster-proof. Move the Pi to a second
-location (a relative's house, per the original plan) to close that gap —
-functionally this needs nothing but a new Tailscale IP, but every
-`"same-house"`/`"same house"` string below is hardcoded, not derived from
-anything, so none of it updates itself. When the move actually happens:
-```bash
-grep -rln 'same-house\|same house' docs/ scripts/
-```
-and update each hit by hand — don't rely on this doc to enumerate them, that
-list has already gone stale once.
+**Relocation in progress.** This branch merges with the Pi still physically
+in the same house as the tower; moving it to a second location (a relative's
+house, per the original plan) happens right after, as a separate physical
+step — functionally nothing but a new Tailscale IP, no script or doc changes
+needed once it's there. The docs no longer hedge this as "same-house, not
+offsite" since the move is imminent and deliberate, not an open-ended TODO —
+but until the Pi actually leaves the house, treat "offsite" as aspirational:
+it still protects against `sdb`/`md0` failing or B2 becoming unreachable, not
+against fire, theft, or the house itself.
 
 ## Current state
 

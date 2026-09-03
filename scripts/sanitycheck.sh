@@ -31,7 +31,7 @@ printf 'backblaze:          %s\n' "$b2_t"
 # identical-snapshot bar below. scripts/pi-verify.sh is the real check for it.
 if [ -n "${PI_REPO:-}" ]; then
   pi_t=$(latest_time "$PI_REPO")
-  printf 'pi (same-house):    %s\n' "${pi_t:-unreachable}"
+  printf 'pi:                 %s\n' "${pi_t:-unreachable}"
 fi
 
 if [ "$local_t" = "$array_t" ] && [ "$local_t" = "$b2_t" ]; then

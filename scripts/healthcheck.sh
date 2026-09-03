@@ -170,7 +170,7 @@ if [ -f "$PI_ENV" ]; then
   . "$PI_ENV"
   set +a
   if [ -n "${PI_REPO:-}" ]; then
-    check_repo "Pi repo (same-house)" "$PI_REPO"
+    check_repo "Pi repo" "$PI_REPO"
     # raw-data mode sums packed blob size across the whole repo, same as the
     # B2 check below — the only thing that differs is what "getting full"
     # means (a fixed free-tier limit there, physical disk space here).

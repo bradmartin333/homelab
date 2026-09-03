@@ -232,11 +232,10 @@ if [ "$(date +%d)" = "$B2_PRUNE_DOM" ]; then
   restic -r "$RESTIC_B2_REPO" --password-file "$PASSFILE" check
 fi
 
-# Fourth target: the Pi, over Tailscale, same house for now — see
-# docs/pi-backup.md. This is a real `backup`, not a `copy` of $LOCAL_REPO,
-# because it's the only repo that also gets the Immich library. Skipped
-# cleanly (not a failure) until $PI_ENV exists, so this block can ship ahead
-# of the physical Pi/SSD setup.
+# Fourth target: the Pi, over Tailscale — see docs/pi-backup.md. This is a
+# real `backup`, not a `copy` of $LOCAL_REPO, because it's the only repo
+# that also gets the Immich library. Skipped cleanly (not a failure) until
+# $PI_ENV exists, so this block can ship ahead of the physical Pi/SSD setup.
 if [ -f "$PI_ENV" ]; then
   set -a
   # shellcheck source=/dev/null

@@ -288,9 +288,7 @@ Order matters:
       restore latest --target / --include "$UPLOAD_LOCATION"
     ```
     then have Immich rescan. Thumbnails and encoded video regenerate on their
-    own. Remember the Pi is same-house today, not offsite — if this restore
-    is happening because the house itself is gone, the Pi copy is gone too;
-    see the caveat in [pi-backup.md](pi-backup.md#goal).
+    own.
 
 ## Restoring from B2
 

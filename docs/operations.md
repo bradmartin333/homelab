@@ -233,7 +233,7 @@ tunnel ingress hand every hostname to traefik automatically.
 | `/srv/media/restic-mirror`            | Mirror of the local repo, on the array                           |
 | `/srv/media/immich`                   | Immich library — mirrored, and backed up to the Pi target only   |
 | `$RESTIC_B2_REPO`                     | Offsite repository — the copy that survives the house            |
-| `$PI_REPO`                            | Pi target — same house for now, the only repo with Immich in it — see [pi-backup.md](pi-backup.md) |
+| `$PI_REPO`                            | Pi target — the only repo with Immich in it — see [pi-backup.md](pi-backup.md) |
 | `/srv/docker-data/cloudflared`        | Tunnel credentials — not backed up, recreate on restore          |
 | `/var/lib/homelab-backup-staging`     | Nightly SQL dumps + `last-run-status`                            |
 | `/root/.restic-password`              | Backup encryption key — guards **all four** repos                |

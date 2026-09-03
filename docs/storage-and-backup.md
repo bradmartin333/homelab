@@ -11,7 +11,7 @@ is a separate doc: [restore.md](restore.md).
 | `/opt/homelab`                    | nvme  | this repo, decrypted `.env` files                | restic + B2            |
 | `/srv/docker-data`                | `sdb` | postgres PGDATA, immich PGDATA, vikunja files    | restic + B2, partial   |
 | `/srv/docker-data/restic-repo`    | `sdb` | the local restic repository                      | is the backup          |
-| `/srv/media/immich`               | `md0` | Immich media library (`$UPLOAD_LOCATION`)        | rPi replica (in progress, same house for now — see [`pi-backup.md`](pi-backup.md)) |
+| `/srv/media/immich`               | `md0` | Immich media library (`$UPLOAD_LOCATION`)        | rPi replica — see [`pi-backup.md`](pi-backup.md) |
 | `/srv/media/restic-mirror`        | `md0` | mirror of the local restic repo                  | is a backup copy       |
 
 `/srv/media` is a **RAID1 mirror — redundant storage, not a backup.** It
@@ -37,8 +37,7 @@ Three things are deliberately excluded from restic:
   feeds its own output back into itself.
 - **The Immich media library** (`/srv/media`). Too large for B2 at a sane
   cost, and already mirrored. A Raspberry Pi replica is the second copy for
-  it — see [pi-backup.md](pi-backup.md) for current status; it's not yet a
-  true offsite copy, since the Pi lives in the same house today.
+  it — see [pi-backup.md](pi-backup.md) for current status.
 
 ### The tradeoff in putting the repo on sdb
 
