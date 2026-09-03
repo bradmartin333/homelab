@@ -240,15 +240,23 @@ sudo ls /root/.ssh/id_ed25519.pub 2>/dev/null || sudo ssh-keygen -t ed25519 -f /
 sshd is key-only (no `PasswordAuthentication`, same as the tower's own
 [`ssh/00-hardening.conf`](../ssh/00-hardening.conf)), `ssh-copy-id` has no
 way to authenticate its first connection and fails straight to
-`Permission denied (publickey)` with no password prompt. Instead, pipe the
-pubkey through your own already-trusted `brad@pi-backup` session (the one
-the [Setup](#setup) steps above already rely on):
+`Permission denied (publickey)` with no password prompt.
+
+The tower's own `brad` account isn't necessarily trusted on the Pi either —
+only whatever machine you actually ran the [Setup](#setup) steps from is.
+Bootstrap through that machine's already-trusted session instead, piping the
+tower's root pubkey through two hops from there:
 ```bash
-sudo cat /root/.ssh/id_ed25519.pub | ssh brad@pi-backup 'cat >> ~/.ssh/authorized_keys'
+ssh -t brad@<tower> 'sudo cat /root/.ssh/id_ed25519.pub' | ssh brad@pi-backup 'cat >> ~/.ssh/authorized_keys'
 ```
-That first `ssh brad@pi-backup` also seeds root's `known_hosts` with the
-Pi's host key, so `healthcheck.sh`'s `BatchMode=yes` SSH calls won't hang on
-an unrecognized host key later. Confirm it worked:
+`-t` forces a pty on the tower hop so the `sudo` password prompt actually
+shows up to type into, while its stdout (the pubkey) still flows through the
+pipe to the Pi. This doesn't seed the tower's own `known_hosts` with the
+Pi's host key — if root's first connection *from the tower* hits an
+unrecognized-host-key prompt, answer it once with a plain
+`sudo ssh brad@pi-backup true` before relying on `healthcheck.sh`'s
+non-interactive `BatchMode=yes` calls. Confirm key auth works end to end,
+run **from the tower**:
 ```bash
 sudo ssh -o BatchMode=yes brad@pi-backup true && echo "key auth works"
 ```
