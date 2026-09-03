@@ -1,8 +1,10 @@
 # Pi backup target (second copy)
 
-**In progress** — confirmed against the live boxes (2026-09-03): the Pi is
-imaged, on the tailnet, and reachable; the SSD, restic REST server, and the
-`backup.sh` wiring are not done yet.
+**Done and deployed** (2026-09-03) — SSD wiped/mounted, `restic-rest-server`
+running, repo initialized, `backup.sh` wired in and confirmed against a real
+nightly run (67.7GiB, including the Immich library), and `pi-verify.sh`
+confirms exact file-count/size matches. The [Setup](#setup) steps below are
+kept as a reference for rebuilding the Pi from scratch, not a to-do list.
 
 ## Goal
 
@@ -21,8 +23,13 @@ becoming unreachable, but not against fire, theft, or anything that takes out
 the whole house, which is what "offsite" is supposed to buy you. Both
 `storage-and-backup.md` and `restore.md` call this out explicitly rather than
 implying the Immich library is now disaster-proof. Move the Pi to a second
-location (a relative's house, per the original plan) to close that gap; no
-script or doc changes needed when that happens, just a new Tailscale IP.
+location (a relative's house, per the original plan) to close that gap —
+functionally this needs nothing but a new Tailscale IP, but the
+`"same-house"` label is a hardcoded string, not derived from anything, so it
+won't update itself. When the move actually happens, grep for it and update
+by hand: `healthcheck.sh` and `sanitycheck.sh` output labels, this doc's
+caveat above, and the equivalent notes in `storage-and-backup.md` and
+`restore.md`.
 
 ## Current state
 
@@ -30,20 +37,22 @@ script or doc changes needed when that happens, just a new Tailscale IP.
   to the tailnet already. Reachable as `brad@pi-backup` (Tailscale MagicDNS)
   or by IP — check `tailscale status` on the tower if the hostname doesn't
   resolve; re-auth can change the IP.
-- **SSD:** 500GB (not the 2TB originally planned — that's a someday upgrade).
-  Currently HFS+-formatted from a prior life as a Mac backup drive
-  (`BackupDrive2`) and **will be wiped** in step 1 below. At current usage
-  (~70GB Immich library + a few hundred MB of everything else), 500GB has
-  plenty of headroom for history via restic's retention/pruning.
-  `healthcheck.sh` warns at ~85% of the drive (`PI_WARN_BYTES`) so this
-  doesn't have to be tracked by hand — **but that threshold is hardcoded to
-  today's 500GB drive** and needs updating in `healthcheck.sh` if the drive
-  is ever swapped for a bigger one.
+- **SSD:** 500GB (not the 2TB originally planned — that's a someday upgrade),
+  mounted at `/mnt/offsite` as `ext4`. At current usage (~68GB Immich library
+  + a few hundred MB of everything else), 500GB has plenty of headroom for
+  history via restic's retention/pruning. `healthcheck.sh` warns at ~85% of
+  the drive (`PI_WARN_BYTES`) so this doesn't have to be tracked by hand —
+  **but that threshold is hardcoded to today's 500GB drive** and needs
+  updating in `healthcheck.sh` if the drive is ever swapped for a bigger one.
 - **sudo on the Pi requires a password**, same as the tower — none of the
   steps below can be run unattended from a laptop. Run them at the Pi's
   terminal or over `ssh brad@pi-backup` with the password in hand.
 
-## Remaining steps
+## Setup
+
+Steps actually run against the live Pi/tower on 2026-09-03, kept here for
+rebuilding the Pi from scratch (new SD card, replacement SSD, etc.) — not a
+pending to-do list.
 
 **1. Wipe and mount the SSD.**
 ```bash
@@ -66,10 +75,19 @@ use on the tower — `sda` mounts directly rather than `sda1`.
 **2. Install and run `restic-rest-server`.**
 REST server over raw HTTP: gives restic-native auth (`htpasswd`) and doesn't
 need the Pi's SSH exposed for backup traffic.
+
+The release archive extracts to a single version-named directory containing
+the binary directly (not two levels deep) — resolve the actual latest tag
+rather than hardcoding a version, since this doc will go stale otherwise:
 ```bash
+LATEST=$(curl -fsSL https://api.github.com/repos/restic/rest-server/releases/latest \
+  | grep -o '"tag_name": *"[^"]*"' | cut -d'"' -f4)
 curl -fsSL -o rest-server.tar.gz \
-  https://github.com/restic/rest-server/releases/latest/download/rest-server_linux_arm64.tar.gz
-sudo tar xzf rest-server.tar.gz --strip-components=2 -C /usr/local/bin '*/rest-server'
+  "https://github.com/restic/rest-server/releases/download/${LATEST}/rest-server_${LATEST#v}_linux_arm64.tar.gz"
+tar xzf rest-server.tar.gz
+sudo install -m 755 rest-server_*/rest-server /usr/local/bin/rest-server
+rm -rf rest-server_* rest-server.tar.gz
+rest-server --version   # confirm it runs before wiring up the service below
 sudo apt install -y apache2-utils   # for htpasswd
 sudo mkdir -p /mnt/offsite/restic
 sudo htpasswd -B -c /mnt/offsite/.htpasswd homelab-backup   # -B: bcrypt — rest-server's
