@@ -28,11 +28,18 @@ LOCAL_REPO=/srv/docker-data/restic-repo
 ARRAY_REPO=/srv/media/restic-mirror
 PASSFILE=/root/.restic-password
 B2_ENV=/root/.restic-b2.env
+PI_ENV=/root/.restic-pi.env
 STAGING=/var/lib/homelab-backup-staging
 MAX_SNAPSHOT_AGE_DAYS=2
 # Backblaze gives 10 GB free. Warn with headroom left to trim retention before
 # the bill starts rather than after.
 B2_WARN_BYTES=$((8 * 1024 * 1024 * 1024))
+# 85% of whatever's physically installed on the Pi's SSD today — unlike B2
+# this isn't a hard external limit. PI_DISK_BYTES lives in $PI_ENV (not
+# hardcoded here) specifically so swapping the drive is a one-line edit on
+# the box, not a script change: `df -B1 --output=size /mnt/offsite | tail -1`
+# on the Pi gives the value to put there. See docs/pi-backup.md#current-state.
+PI_WARN_PCT=85
 
 ok()   { printf '  \033[32m✓\033[0m %s\n' "$1"; }
 bad()  { printf '  \033[31m✗\033[0m %s\n' "$1"; }
@@ -156,6 +163,40 @@ if [ -f "$B2_ENV" ]; then
   fi
 else
   bad "$B2_ENV not found — offsite copy is not configured"
+fi
+
+if [ -f "$PI_ENV" ]; then
+  set -a
+  # shellcheck source=/dev/null
+  . "$PI_ENV"
+  set +a
+  if [ -n "${PI_REPO:-}" ]; then
+    check_repo "Pi repo" "$PI_REPO"
+    # raw-data mode sums packed blob size across the whole repo, same as the
+    # B2 check below — the only thing that differs is what "getting full"
+    # means (a fixed free-tier limit there, physical disk space here).
+    pi_used=$(restic -r "$PI_REPO" --password-file "$PASSFILE" \
+      stats --mode raw-data --json 2>/dev/null \
+      | grep -o '"total_size":[0-9]*' | cut -d: -f2 || true)
+    if [ -z "$pi_used" ]; then
+      warn "could not read Pi repo size"
+    elif [ -z "${PI_DISK_BYTES:-}" ]; then
+      warn "Pi repo $(numfmt --to=iec "$pi_used") — PI_DISK_BYTES not set in" \
+           "$PI_ENV, cannot check capacity (see docs/pi-backup.md#current-state)"
+    else
+      pi_warn_bytes=$(( PI_DISK_BYTES * PI_WARN_PCT / 100 ))
+      if [ "$pi_used" -ge "$pi_warn_bytes" ]; then
+        warn "Pi repo $(numfmt --to=iec "$pi_used") of $(numfmt --to=iec "$PI_DISK_BYTES") SSD —" \
+             "trim retention in backup.sh or grow the drive"
+      else
+        ok "Pi repo $(numfmt --to=iec "$pi_used") of $(numfmt --to=iec "$PI_DISK_BYTES") SSD"
+      fi
+    fi
+  else
+    bad "PI_REPO not set in $PI_ENV"
+  fi
+else
+  warn "$PI_ENV not found — Pi backup target not yet configured, see docs/pi-backup.md"
 fi
 
 echo; echo "NETWORK"
