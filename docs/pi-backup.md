@@ -231,6 +231,19 @@ same as it already does for the tower's own disks. This needs a one-time
 setup on both boxes (password-gated, so run it by hand — see the note under
 [Current state](#current-state)):
 
+**The SSD is a Seagate Backup Plus Slim** (`lsusb` shows vendor `0bc2`,
+Seagate's own USB bridge) — its bridge chip rejects the default ATA/SAT
+pass-through smartctl tries (`Read Device Identity failed`, even with
+`-d sat`/`-d sat,16`/`-d usbjmicron` and `-T permissive`). `-d scsi` is the
+one device type that gets a real answer out of it, via the SCSI
+Informational Exceptions page rather than full ATA SMART attributes:
+```bash
+sudo smartctl -a -d scsi /dev/sda   # confirms "SMART Health Status: OK"
+```
+`healthcheck.sh` and the sudoers rule below already assume `-d scsi` — if
+you ever swap in a bare drive behind a generic USB-SATA adapter instead,
+re-check which `-d` type it actually needs and update both.
+
 **1. Give the tower's root user an SSH key**, if it doesn't have one yet:
 ```bash
 sudo ls /root/.ssh/id_ed25519.pub 2>/dev/null || sudo ssh-keygen -t ed25519 -f /root/.ssh/id_ed25519 -N ""
@@ -261,16 +274,17 @@ run **from the tower**:
 sudo ssh -o BatchMode=yes brad@pi-backup true && echo "key auth works"
 ```
 
-**3. Let `brad` run `smartctl -H` on the Pi without a password**, scoped to
-just that flag rather than opening up `sudo smartctl` generally:
+**3. Let `brad` run `smartctl -H -d scsi` on the Pi without a password**,
+scoped to just that flag combination rather than opening up `sudo smartctl`
+generally:
 ```bash
-echo 'brad ALL=(root) NOPASSWD: /usr/sbin/smartctl -H /dev/*' | sudo tee /etc/sudoers.d/homelab-smartctl
+echo 'brad ALL=(root) NOPASSWD: /usr/sbin/smartctl -H -d scsi /dev/*' | sudo tee /etc/sudoers.d/homelab-smartctl
 sudo visudo -cf /etc/sudoers.d/homelab-smartctl   # syntax-check before trusting it
 ```
 
 **4. Confirm it end-to-end**, from the tower:
 ```bash
-sudo ssh -o BatchMode=yes brad@pi-backup sudo -n smartctl -H /dev/sda
+sudo ssh -o BatchMode=yes brad@pi-backup sudo -n smartctl -H -d scsi /dev/sda
 sudo /opt/homelab/scripts/healthcheck.sh   # DRIVES section should show pi-backup's SSD
 ```
 If the Pi is ever unreachable or this setup hasn't been done, `healthcheck.sh`

@@ -115,9 +115,13 @@ if [ -f "$PI_ENV" ]; then
   else
     for d in $(ssh -o BatchMode=yes -o ConnectTimeout=5 "$PI_SSH_HOST" \
                  "lsblk -dno NAME,TYPE | awk '\$2==\"disk\"{print \"/dev/\"\$1}'"); do
-      ssh -o BatchMode=yes -o ConnectTimeout=5 "$PI_SSH_HOST" "sudo -n smartctl -H $d" >/dev/null 2>&1 \
+      # -d scsi: the Pi's SSD is behind a Seagate USB bridge that rejects the
+      # ATA/SAT pass-through smartctl defaults to (and any -d sat variant) —
+      # only its SCSI Informational Exceptions page actually answers. See
+      # docs/pi-backup.md#smart-checks.
+      ssh -o BatchMode=yes -o ConnectTimeout=5 "$PI_SSH_HOST" "sudo -n smartctl -H -d scsi $d" >/dev/null 2>&1 \
         && ok "$PI_SSH_HOST $d SMART healthy" \
-        || warn "$PI_SSH_HOST $d SMART problem — run: ssh $PI_SSH_HOST sudo smartctl -a $d"
+        || warn "$PI_SSH_HOST $d SMART problem — run: ssh $PI_SSH_HOST sudo smartctl -a -d scsi $d"
     done
   fi
 fi
