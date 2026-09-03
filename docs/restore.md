@@ -394,11 +394,9 @@ A backup you've never restored is a hypothesis. Twice a year:
    ```bash
    sudo bash -c 'set -a; . /root/.restic-pi.env; set +a; \
      restic -r "$PI_REPO" --password-file /root/.restic-password \
-     restore latest --target /tmp/pi-restore-test --include "$UPLOAD_LOCATION"'
-   # restic preserves the full original path under --target, so the restored
-   # tree lands at /tmp/pi-restore-test$UPLOAD_LOCATION
-   diff -rq "/tmp/pi-restore-test$UPLOAD_LOCATION" "$UPLOAD_LOCATION"   # should print nothing
-   sudo rm -rf /tmp/pi-restore-test
+     restore latest --target /tmp/pi-restore-test --include "$UPLOAD_LOCATION"; \
+     diff -rq "/tmp/pi-restore-test$UPLOAD_LOCATION" "$UPLOAD_LOCATION"; \
+     rm -rf /tmp/pi-restore-test'
    ```
    A passing drill is `diff` printing nothing — every file the restore
    produced matches what's actually live on `/srv/media`.
