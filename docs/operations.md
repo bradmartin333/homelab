@@ -247,7 +247,7 @@ tunnel ingress hand every hostname to traefik automatically.
 | Grafana admin password     | `openssl rand -hex 24`        | `monitoring/.env`                                   |
 | restic repo key            | `openssl rand -hex 32`        | `/root/.restic-password`                            |
 | Backblaze application key  | B2 console, scoped to one bucket | `/root/.restic-b2.env`                           |
-| Pi REST-server password    | `htpasswd -c /mnt/offsite/.htpasswd homelab-backup` (on the Pi) | `/root/.restic-pi.env` |
+| Pi REST-server password    | `htpasswd -B -c /mnt/offsite/.htpasswd homelab-backup` (on the Pi) | `/root/.restic-pi.env` |
 | Cloudflare API token       | Cloudflare dashboard          | `traefik/.env`                                      |
 | Tunnel UUID + credentials  | `cloudflared tunnel create`   | `/srv/docker-data/cloudflared/`                     |
 | sops age key               | `age-keygen`                  | `~/.config/sops/age/keys.txt` — unlocks every `.enc` |

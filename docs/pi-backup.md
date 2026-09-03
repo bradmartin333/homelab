@@ -69,7 +69,16 @@ curl -fsSL -o rest-server.tar.gz \
 sudo tar xzf rest-server.tar.gz --strip-components=2 -C /usr/local/bin '*/rest-server'
 sudo apt install -y apache2-utils   # for htpasswd
 sudo mkdir -p /mnt/offsite/restic
-htpasswd -c /mnt/offsite/.htpasswd homelab-backup   # one set of creds, like the restic password
+sudo htpasswd -B -c /mnt/offsite/.htpasswd homelab-backup   # -B: bcrypt — rest-server's
+                                                             # htpasswd parser rejects the
+                                                             # apr1-MD5 format htpasswd
+                                                             # defaults to, with only
+                                                             # "Invalid htpasswd entry" in
+                                                             # the log to go on
+# The service below runs as User=brad, not root — without this, repo
+# creation fails with a 500 and "permission denied" in the journal, since
+# sudo mkdir above left the directory root-owned.
+sudo chown -R brad:brad /mnt/offsite/restic
 ```
 
 `/etc/systemd/system/restic-rest-server.service`:
@@ -102,21 +111,34 @@ sudo systemctl status restic-rest-server
 
 **3. Initialize the repo from the tower**, reusing the tower's restic
 password so `restic copy`/dedup logic works the same way it does for the
-array mirror and B2:
+array mirror and B2. `--private-repos` on the server means the URL path must
+be the htpasswd username (`homelab-backup`), not `/` — a bare `/` or any
+other path is denied.
+
+Auth goes through `RESTIC_REST_USERNAME`/`RESTIC_REST_PASSWORD` rather than
+embedding `user:pass@` in the URL — restic supports both, but the env-var
+form matches how B2's credentials are already structured here and sidesteps
+having to URL-escape whatever's in the password:
 ```bash
-sudo restic -r rest:http://homelab-backup:<htpasswd-password>@<PI_TS_IP>:8000/ \
+export RESTIC_REST_USERNAME=homelab-backup
+export RESTIC_REST_PASSWORD=<htpasswd-password>
+sudo -E restic -r rest:http://<PI_TS_IP>:8000/homelab-backup/ \
   --password-file /root/.restic-password init \
   --copy-chunker-params \
   --from-repo /srv/docker-data/restic-repo \
   --from-password-file /root/.restic-password
 ```
+`sudo -E` matters — plain `sudo` drops your exported env vars and the
+request comes back `401 Unauthorized` with no other clue why.
 
 **4. Drop the Pi's credentials on the tower**, outside the git repo like
 `/root/.restic-b2.env`:
 ```bash
 install -m 600 /dev/null /root/.restic-pi.env
 cat > /root/.restic-pi.env <<'EOF'
-PI_REPO=rest:http://homelab-backup:<htpasswd-password>@<PI_TS_IP>:8000/
+PI_REPO=rest:http://<PI_TS_IP>:8000/homelab-backup/
+RESTIC_REST_USERNAME=homelab-backup
+RESTIC_REST_PASSWORD=<htpasswd-password>
 EOF
 ```
 `scripts/backup.sh` looks for this file and skips the Pi leg cleanly if it's

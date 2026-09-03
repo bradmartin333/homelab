@@ -175,19 +175,28 @@ and destination, and one password is one fewer thing to lose.
 
 The fourth repo, and the only one that includes the Immich library. Reached
 over Tailscale rather than the public internet, so it has its own credentials
-file rather than reusing B2's shape:
+file rather than reusing B2's shape — and unlike B2, auth is via
+`RESTIC_REST_USERNAME`/`RESTIC_REST_PASSWORD` rather than embedded in the URL:
 
 ```bash
 install -m 600 /dev/null /root/.restic-pi.env
 cat > /root/.restic-pi.env <<'EOF'
-PI_REPO=rest:http://homelab-backup:<htpasswd-password>@<PI_TS_IP>:8000/
+PI_REPO=rest:http://<PI_TS_IP>:8000/homelab-backup/
+RESTIC_REST_USERNAME=homelab-backup
+RESTIC_REST_PASSWORD=<htpasswd-password>
 EOF
 ```
+The trailing `/homelab-backup/` path segment is required — the server's
+`--private-repos` flag only grants access under a path matching the htpasswd
+username.
 
-`backup.sh` treats this file as optional — absent means the Pi leg is skipped
-with a warning rather than failing the whole nightly run, which is what lets
-the script-side wiring land before the physical Pi setup is finished. See
-[pi-backup.md](pi-backup.md) for the full setup and current status.
+`backup.sh` sources this file with `set -a`, so all three variables end up
+exported and restic picks up the REST credentials automatically — no
+`--password`-style flag needed for them. The file is treated as optional:
+absent means the Pi leg is skipped with a warning rather than failing the
+whole nightly run, which is what lets the script-side wiring land before the
+physical Pi setup is finished. See [pi-backup.md](pi-backup.md) for the full
+setup and current status.
 
 ## Staying inside the B2 free tier
 
