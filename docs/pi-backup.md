@@ -24,12 +24,14 @@ the whole house, which is what "offsite" is supposed to buy you. Both
 `storage-and-backup.md` and `restore.md` call this out explicitly rather than
 implying the Immich library is now disaster-proof. Move the Pi to a second
 location (a relative's house, per the original plan) to close that gap —
-functionally this needs nothing but a new Tailscale IP, but the
-`"same-house"` label is a hardcoded string, not derived from anything, so it
-won't update itself. When the move actually happens, grep for it and update
-by hand: `healthcheck.sh` and `sanitycheck.sh` output labels, this doc's
-caveat above, and the equivalent notes in `storage-and-backup.md` and
-`restore.md`.
+functionally this needs nothing but a new Tailscale IP, but every
+`"same-house"`/`"same house"` string below is hardcoded, not derived from
+anything, so none of it updates itself. When the move actually happens:
+```bash
+grep -rln 'same-house\|same house' docs/ scripts/
+```
+and update each hit by hand — don't rely on this doc to enumerate them, that
+list has already gone stale once.
 
 ## Current state
 
