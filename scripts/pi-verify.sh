@@ -47,10 +47,24 @@ if [ "$age" -gt "$MAX_SNAPSHOT_AGE_DAYS" ]; then
   exit 1
 fi
 
+# One `ls` call, parsed for both count and size. Two things to get right
+# here, both learned the hard way against the real repo:
+#   - `--path` on `ls`/`stats` only selects WHICH SNAPSHOT to use (by its
+#     recorded top-level paths) — it does not restrict what gets listed.
+#     `stats` has no way to scope to a subtree at all. The only thing that
+#     actually filters the listing is a positional directory argument to
+#     `ls`, plus `--recursive` to descend into it.
+#   - Plain `ls` prints one path per line for BOTH files and directories, so
+#     counting lines overcounts (Immich's per-asset directory structure means
+#     there are nearly as many directories as files). `--json` distinguishes
+#     them via `"type"`.
+snap_json=$(restic -r "$PI_REPO" --password-file "$PASSFILE" \
+  ls latest --recursive --json --path "$UPLOAD_LOCATION" "$UPLOAD_LOCATION" 2>/dev/null)
+snap_files=$(printf '%s\n' "$snap_json" | grep '"type":"file"' || true)
+
 echo; echo "== Immich file count: live vs snapshot =="
 live_count=$(find "$UPLOAD_LOCATION" -type f | wc -l)
-snap_count=$(restic -r "$PI_REPO" --password-file "$PASSFILE" ls latest --path "$UPLOAD_LOCATION" 2>/dev/null \
-  | grep -c '^/' || true)
+snap_count=$(printf '%s\n' "$snap_files" | grep -c . || true)
 echo "live:     $live_count files"
 echo "snapshot: $snap_count files"
 if [ "$snap_count" -eq 0 ]; then
@@ -69,13 +83,13 @@ if [ "$live_count" -gt "$snap_count" ]; then
   fi
 fi
 
-echo; echo "== Immich library size: live vs snapshot (restore-size) =="
+echo; echo "== Immich library size: live vs snapshot =="
 live_size=$(du -sb "$UPLOAD_LOCATION" | cut -f1)
-snap_size=$(restic -r "$PI_REPO" --password-file "$PASSFILE" stats latest --path "$UPLOAD_LOCATION" \
-  --mode restore-size --json 2>/dev/null | grep -o '"total_size":[0-9]*' | cut -d: -f2)
+snap_size=$(printf '%s\n' "$snap_files" | grep -o '"size":[0-9]*' | cut -d: -f2 \
+  | awk '{s+=$1} END{print s+0}')
 echo "live:     $(numfmt --to=iec "$live_size")"
-echo "snapshot: $(numfmt --to=iec "${snap_size:-0}")"
-if [ -z "${snap_size:-}" ] || [ "$snap_size" -eq 0 ]; then
+echo "snapshot: $(numfmt --to=iec "$snap_size")"
+if [ "$snap_size" -eq 0 ]; then
   echo "error: could not read snapshot size" >&2
   exit 1
 fi

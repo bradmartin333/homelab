@@ -170,14 +170,22 @@ sudo /opt/homelab/scripts/pi-verify.sh
 ```
 
 - Confirms the Pi repo is reachable and the latest snapshot is recent.
-- Compares the **live file count** under `$UPLOAD_LOCATION` (Immich's actual
-  library on `/srv/media`) against the **file count restic recorded** in that
-  snapshot (`restic ls latest --path`) — catches a scoping mistake (wrong
-  `SOURCES_PI` path, an exclude that's too broad) that a fresh-snapshot check
-  alone would miss.
-- Compares **live size** (`du`) against the snapshot's **restore size**
-  (`restic stats --mode restore-size`) — same purpose, a different angle:
-  a partial backup can match on file count but not bytes (truncated files).
+- Compares the **live file count and size** under `$UPLOAD_LOCATION`
+  (Immich's actual library on `/srv/media`) against what restic recorded in
+  that snapshot — catches a scoping mistake (wrong `SOURCES_PI` path, an
+  exclude that's too broad, a partial/truncated backup) that a fresh-snapshot
+  check alone would miss.
+
+  This needs `restic ls latest --recursive <dir>` with the directory as a
+  positional argument, not `--path` — `--path` on `ls`/`stats` only selects
+  *which snapshot* to use (by one of its recorded top-level source paths),
+  it does not restrict what gets listed or counted. `stats` in particular has
+  no way to scope to a subtree at all, so the size comparison is computed by
+  summing `"size"` across the same `--json` listing rather than using
+  `stats --mode restore-size`. Both mistakes looked plausible on the first
+  real run — the snapshot count came back *higher* than live because plain
+  `ls` counts directories as well as files, and Immich's per-asset directory
+  layout means there are nearly as many directories as files.
 - Runs `restic check --read-data-subset=5%` against the Pi repo — same
   sampling B2 uses, done here mainly to catch a *degrading SSD* rather than
   to save egress, since Tailscale-LAN reads aren't metered the way B2's are.
