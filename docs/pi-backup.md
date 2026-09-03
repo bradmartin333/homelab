@@ -236,12 +236,22 @@ setup on both boxes (password-gated, so run it by hand — see the note under
 sudo ls /root/.ssh/id_ed25519.pub 2>/dev/null || sudo ssh-keygen -t ed25519 -f /root/.ssh/id_ed25519 -N ""
 ```
 
-**2. Copy it to the Pi and accept its host key**, from the tower:
+**2. Copy it to the Pi**, from the tower. **Not `ssh-copy-id`** — if the Pi's
+sshd is key-only (no `PasswordAuthentication`, same as the tower's own
+[`ssh/00-hardening.conf`](../ssh/00-hardening.conf)), `ssh-copy-id` has no
+way to authenticate its first connection and fails straight to
+`Permission denied (publickey)` with no password prompt. Instead, pipe the
+pubkey through your own already-trusted `brad@pi-backup` session (the one
+the [Setup](#setup) steps above already rely on):
 ```bash
-sudo ssh-copy-id -i /root/.ssh/id_ed25519.pub brad@pi-backup
+sudo cat /root/.ssh/id_ed25519.pub | ssh brad@pi-backup 'cat >> ~/.ssh/authorized_keys'
 ```
-`ssh-copy-id` also seeds root's `known_hosts`, so `healthcheck.sh`'s
-`BatchMode=yes` SSH calls won't hang on an unrecognized host key later.
+That first `ssh brad@pi-backup` also seeds root's `known_hosts` with the
+Pi's host key, so `healthcheck.sh`'s `BatchMode=yes` SSH calls won't hang on
+an unrecognized host key later. Confirm it worked:
+```bash
+sudo ssh -o BatchMode=yes brad@pi-backup true && echo "key auth works"
+```
 
 **3. Let `brad` run `smartctl -H` on the Pi without a password**, scoped to
 just that flag rather than opening up `sudo smartctl` generally:
