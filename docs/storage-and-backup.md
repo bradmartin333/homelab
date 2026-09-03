@@ -11,7 +11,7 @@ is a separate doc: [restore.md](restore.md).
 | `/opt/homelab`                    | nvme  | this repo, decrypted `.env` files                | restic + B2            |
 | `/srv/docker-data`                | `sdb` | postgres PGDATA, immich PGDATA, vikunja files    | restic + B2, partial   |
 | `/srv/docker-data/restic-repo`    | `sdb` | the local restic repository                      | is the backup          |
-| `/srv/media/immich`               | `md0` | Immich media library (`$UPLOAD_LOCATION`)        | rPi replica only (not yet built — see [`future-pi-offsite-backup.md`](future-pi-offsite-backup.md)) |
+| `/srv/media/immich`               | `md0` | Immich media library (`$UPLOAD_LOCATION`)        | rPi replica (in progress, same house for now — see [`pi-backup.md`](pi-backup.md)) |
 | `/srv/media/restic-mirror`        | `md0` | mirror of the local restic repo                  | is a backup copy       |
 
 `/srv/media` is a **RAID1 mirror — redundant storage, not a backup.** It
@@ -36,8 +36,9 @@ Three things are deliberately excluded from restic:
   that isn't inside the tree being backed up. Without the exclude, restic
   feeds its own output back into itself.
 - **The Immich media library** (`/srv/media`). Too large for B2 at a sane
-  cost, and already mirrored. A remote rPi replica is the planned offsite
-  copy for it, not yet built.
+  cost, and already mirrored. A Raspberry Pi replica is the second copy for
+  it — see [pi-backup.md](pi-backup.md) for current status; it's not yet a
+  true offsite copy, since the Pi lives in the same house today.
 
 ### The tradeoff in putting the repo on sdb
 
@@ -169,6 +170,24 @@ restic -r "$RESTIC_B2_REPO" --password-file /root/.restic-password init \
 
 All repos share `/root/.restic-password` — `restic copy` has to unlock source
 and destination, and one password is one fewer thing to lose.
+
+## The Pi target
+
+The fourth repo, and the only one that includes the Immich library. Reached
+over Tailscale rather than the public internet, so it has its own credentials
+file rather than reusing B2's shape:
+
+```bash
+install -m 600 /dev/null /root/.restic-pi.env
+cat > /root/.restic-pi.env <<'EOF'
+PI_REPO=rest:http://homelab-backup:<htpasswd-password>@<PI_TS_IP>:8000/
+EOF
+```
+
+`backup.sh` treats this file as optional — absent means the Pi leg is skipped
+with a warning rather than failing the whole nightly run, which is what lets
+the script-side wiring land before the physical Pi setup is finished. See
+[pi-backup.md](pi-backup.md) for the full setup and current status.
 
 ## Staying inside the B2 free tier
 

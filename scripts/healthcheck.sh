@@ -28,6 +28,7 @@ LOCAL_REPO=/srv/docker-data/restic-repo
 ARRAY_REPO=/srv/media/restic-mirror
 PASSFILE=/root/.restic-password
 B2_ENV=/root/.restic-b2.env
+PI_ENV=/root/.restic-pi.env
 STAGING=/var/lib/homelab-backup-staging
 MAX_SNAPSHOT_AGE_DAYS=2
 # Backblaze gives 10 GB free. Warn with headroom left to trim retention before
@@ -156,6 +157,20 @@ if [ -f "$B2_ENV" ]; then
   fi
 else
   bad "$B2_ENV not found — offsite copy is not configured"
+fi
+
+if [ -f "$PI_ENV" ]; then
+  set -a
+  # shellcheck source=/dev/null
+  . "$PI_ENV"
+  set +a
+  if [ -n "${PI_REPO:-}" ]; then
+    check_repo "Pi repo (same-house)" "$PI_REPO"
+  else
+    bad "PI_REPO not set in $PI_ENV"
+  fi
+else
+  warn "$PI_ENV not found — Pi backup target not yet configured, see docs/pi-backup.md"
 fi
 
 echo; echo "NETWORK"

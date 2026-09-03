@@ -280,10 +280,17 @@ Order matters:
     connection` (usually four) before assuming the tunnel step above worked.
 13. Load both dumps, per the sections above.
 14. Only if the array was lost too: restore the Immich media library from the
-    rPi replica (once built — see
-    [`future-pi-offsite-backup.md`](future-pi-offsite-backup.md)) into
-    `$UPLOAD_LOCATION`, then have Immich rescan. Thumbnails and encoded video
-    regenerate on their own.
+    Pi replica (see [`pi-backup.md`](pi-backup.md) for current status) into
+    `$UPLOAD_LOCATION`:
+    ```bash
+    set -a; . /root/.restic-pi.env; set +a
+    sudo restic -r "$PI_REPO" --password-file /root/.restic-password \
+      restore latest --target / --include "$UPLOAD_LOCATION"
+    ```
+    then have Immich rescan. Thumbnails and encoded video regenerate on their
+    own. Remember the Pi is same-house today, not offsite — if this restore
+    is happening because the house itself is gone, the Pi copy is gone too;
+    see the caveat in [pi-backup.md](pi-backup.md#goal).
 
 ## Restoring from B2
 
@@ -297,8 +304,8 @@ Same commands, `REPO="$RESTIC_B2_REPO"`. What's different in practice:
 - **Same history as local.** `B2_KEEP` matches `LOCAL_KEEP`, so anything
   restorable locally is restorable from B2 — check `backup.sh` before
   assuming that still holds if the repo ever outgrows the free tier.
-- **No Immich library**, same as local — that lives only on the rPi, once
-  built.
+- **No Immich library**, same as local — that lives only on the Pi target
+  (see [pi-backup.md](pi-backup.md)).
 - **You need three things**, none of them on the box: the B2 key, the restic
   password, and the age key. Keep them somewhere that survives the house — a
   password manager, or paper in another building. A backup you can't decrypt
@@ -379,4 +386,21 @@ A backup you've never restored is a hypothesis. Twice a year:
    operation exercises it.
 4. Run `scripts/sanitycheck.sh` — confirms the local, array-mirror, and B2
    repos all hold the identical nightly snapshot, not just that each is
-   independently recent.
+   independently recent. The Pi leg is reported alongside them but isn't held
+   to the same identical-snapshot bar, since it's a separate `restic backup`
+   run with a wider source set (it includes the Immich library), not a
+   `copy` of the other three.
+5. **Pi/Immich leg** — see [pi-backup.md](pi-backup.md#verification) for the
+   day-to-day check (`scripts/pi-verify.sh`). Twice a year, also do an actual
+   restore:
+   ```bash
+   set -a; . /root/.restic-pi.env; set +a
+   sudo restic -r "$PI_REPO" --password-file /root/.restic-password \
+     restore latest --target /tmp/pi-restore-test --include "$UPLOAD_LOCATION"
+   # restic preserves the full original path under --target, so the restored
+   # tree lands at /tmp/pi-restore-test$UPLOAD_LOCATION
+   diff -rq "/tmp/pi-restore-test$UPLOAD_LOCATION" "$UPLOAD_LOCATION"   # should print nothing
+   sudo rm -rf /tmp/pi-restore-test
+   ```
+   A passing drill is `diff` printing nothing — every file the restore
+   produced matches what's actually live on `/srv/media`.

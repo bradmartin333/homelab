@@ -11,9 +11,8 @@ the live disk itself.
 A RAID mirror is not a backup — it protects against a disk dying, not against
 you dropping a table. What it does do is make "swap a disk, keep working" the
 recovery path for routine disk failure, instead of falling back to the real
-backups (local `restic-repo`, the `md0` mirror, B2, and eventually a
-[Pi target](future-pi-offsite-backup.md)) for something a mirror should have
-absorbed.
+backups (local `restic-repo`, the `md0` mirror, B2, and the
+[Pi target](pi-backup.md)) for something a mirror should have absorbed.
 
 ## Current state
 
