@@ -2,12 +2,13 @@
 set -euo pipefail
 
 # Nightly backup: dump both postgres clusters, snapshot to the local restic
-# repo on the sdb SSD, then copy that snapshot offsite to Backblaze B2.
+# repo on the sdb SSD, copy that snapshot to the md0 array and offsite to
+# Backblaze B2, then (if configured) back up separately to the Pi target,
+# which is the only one of the four that includes the Immich library.
 #
-# Immich's media library is deliberately excluded — it lives on the md0 mirror
-# at /srv/media, it is far too large to be worth B2 egress, and the remote rPi
-# replica covers it instead. Everything needed to rebuild the stack around a
-# restored library is here.
+# Immich's media library is deliberately excluded from SOURCES/the B2 copy —
+# it lives on the md0 mirror at /srv/media and is far too large to be worth B2
+# egress. See docs/pi-backup.md for the Pi leg that covers it instead.
 
 REPO_DIR="${HOMELAB_DIR:-/opt/homelab}"
 # The repo lives on the same filesystem as /srv/docker-data because sdb is one
@@ -21,6 +22,10 @@ LOCAL_REPO=/srv/docker-data/restic-repo
 ARRAY_REPO=/srv/media/restic-mirror
 PASSFILE=/root/.restic-password
 B2_ENV=/root/.restic-b2.env
+# Optional — see docs/pi-backup.md. Absent means the Pi leg is skipped below,
+# so this can be wired in ahead of the physical Pi/SSD setup without breaking
+# the nightly run.
+PI_ENV=/root/.restic-pi.env
 STAGING=/var/lib/homelab-backup-staging
 # healthchecks.io ping UUID, kept out of this repo because it is public:
 # anyone holding the UUID can POST a fake "backup succeeded" ping and
@@ -120,7 +125,7 @@ trap on_term TERM
 mountpoint -q /srv/docker-data || { echo "error: /srv/docker-data is not mounted" >&2; exit 1; }
 mountpoint -q /srv/media || { echo "error: /srv/media is not mounted" >&2; exit 1; }
 [ -d "$ARRAY_REPO" ] || {
-  echo "error: $ARRAY_REPO does not exist — see docs/architecture-migration.md" >&2
+  echo "error: $ARRAY_REPO does not exist — see docs/storage-and-backup.md#the-tradeoff-in-putting-the-repo-on-sdb" >&2
   exit 1
 }
 
@@ -225,6 +230,47 @@ restic -r "$RESTIC_B2_REPO" --password-file "$PASSFILE" forget --tag nightly "${
 if [ "$(date +%d)" = "$B2_PRUNE_DOM" ]; then
   restic -r "$RESTIC_B2_REPO" --password-file "$PASSFILE" prune
   restic -r "$RESTIC_B2_REPO" --password-file "$PASSFILE" check
+fi
+
+# Fourth target: the Pi, over Tailscale — see docs/pi-backup.md. This is a
+# real `backup`, not a `copy` of $LOCAL_REPO, because it's the only repo
+# that also gets the Immich library. Skipped cleanly (not a failure) until
+# $PI_ENV exists, so this block can ship ahead of the physical Pi/SSD setup.
+if [ -f "$PI_ENV" ]; then
+  set -a
+  # shellcheck source=/dev/null
+  . "$PI_ENV"
+  set +a
+  if [ -n "${PI_REPO:-}" ]; then
+    # EXCLUDES has a belt-and-braces --exclude "$UPLOAD_LOCATION" for the
+    # other three repos (Immich isn't in their SOURCES anyway). The Pi backup
+    # is the one place that exclusion must NOT apply — drop it here rather
+    # than reusing EXCLUDES verbatim, or the Pi's whole reason for existing
+    # gets silently filtered out of its own backup.
+    EXCLUDES_PI=(--exclude "$LOCAL_REPO" --exclude /srv/docker-data/postgres --exclude /srv/docker-data/immich/postgres)
+    SOURCES_PI=("${SOURCES[@]}")
+    if [ -n "$UPLOAD_LOCATION" ]; then
+      SOURCES_PI+=("$UPLOAD_LOCATION")
+    else
+      echo "warning: UPLOAD_LOCATION not found in $REPO_DIR/immich/.env —" \
+           "Pi backup will not include the Immich library" >&2
+    fi
+    unlock_stale "$PI_REPO"
+    restic -r "$PI_REPO" --password-file "$PASSFILE" \
+      backup --tag nightly "${EXCLUDES_PI[@]}" "${SOURCES_PI[@]}"
+    restic -r "$PI_REPO" --password-file "$PASSFILE" forget --tag nightly "${LOCAL_KEEP[@]}"
+    # Prune/check monthly rather than nightly — repacking a repo this size on
+    # a Pi's CPU is the kind of thing you don't want fighting the next night's
+    # backup for disk I/O.
+    if [ "$(date +%d)" = "$B2_PRUNE_DOM" ]; then
+      restic -r "$PI_REPO" --password-file "$PASSFILE" prune
+      restic -r "$PI_REPO" --password-file "$PASSFILE" check
+    fi
+  else
+    echo "warning: PI_REPO not set in $PI_ENV" >&2
+  fi
+else
+  echo "note: $PI_ENV not found — Pi backup target not yet configured, see docs/pi-backup.md" >&2
 fi
 
 # Only reached if every step above succeeded.

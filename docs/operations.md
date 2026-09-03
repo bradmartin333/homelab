@@ -56,7 +56,7 @@ creds; recipient(s) are configured via `toAddresses` in
 
 | Time  | Job                                                                    |
 | ------ | ------------------------------------------------------------------------ |
-| 03:00 | Backup: dump both clusters → local repo → array mirror → B2 → ping (`homelab-backup.timer`, ±5m jitter) |
+| 03:00 | Backup: dump both clusters → local repo → array mirror → B2 → Pi (if configured, see [pi-backup.md](pi-backup.md)) → ping (`homelab-backup.timer`, ±5m jitter) |
 | 04:30 | Reboot window, if patches require one (`apt/50unattended-upgrades`)      |
 | 05:00 | Watchtower patch updates (`WATCHTOWER_SCHEDULE`)                         |
 
@@ -86,20 +86,26 @@ death reports as all-green.
    This is a different question from "is each repo recent" — it proves local,
    array mirror, and B2 all hold the *same* nightly snapshot, which catches a
    B2 leg that has been quietly failing while the local legs look fine.
-2. **Restore test** — a backup you have never restored is a hypothesis. See
+2. **Verify the Pi target**, once configured:
+   ```bash
+   sudo /opt/homelab/scripts/pi-verify.sh
+   ```
+   Checks the Immich library itself, not just repo reachability — see
+   [pi-backup.md](pi-backup.md#verification).
+3. **Restore test** — a backup you have never restored is a hypothesis. See
    [restore.md](restore.md#verify-it-actually-works).
-3. **Deep-verify the local repository.** The nightly `check` validates
+4. **Deep-verify the local repository.** The nightly `check` validates
    structure only; this reads a sample of actual data and catches a silently
    failing disk:
    ```bash
    sudo restic -r /srv/docker-data/restic-repo \
      --password-file /root/.restic-password check --read-data-subset=5%
    ```
-4. `sudo ufw status verbose` — still the expected rules, nothing new.
-5. `docker system df` — reclaim space if images have crept up.
-6. Check **B2 usage** against the 10 GB free tier (`healthcheck.sh` reports it
+5. `sudo ufw status verbose` — still the expected rules, nothing new.
+6. `docker system df` — reclaim space if images have crept up.
+7. Check **B2 usage** against the 10 GB free tier (`healthcheck.sh` reports it
    and warns at 8 GB).
-7. `tailscale status` — remove devices you no longer own.
+8. `tailscale status` — remove devices you no longer own.
 
 **Quarterly — thirty minutes**
 
@@ -186,10 +192,13 @@ death reports as all-green.
 | App broke overnight                        | Watchtower pulled a bad patch        | `docker logs watchtower`; pin the previous tag                            |
 | Array shows `[U_]` instead of `[UU]`       | A mirror member dropped or failed    | `cat /proc/mdstat`, then [replace it](storage-and-backup.md#replacing-a-failed-raid1-member) |
 | B2 usage climbing fast                     | Bucket lifecycle keeping old versions | B2 console → bucket → Lifecycle → "keep only the last version"           |
+| Pi repo approaching the SSD's capacity     | Immich library growth, or retention never pruning | `sudo scripts/healthcheck.sh` reports it (85% of `PI_DISK_BYTES` in `/root/.restic-pi.env`) — trim retention in `backup.sh` or grow the drive |
 | Immich DB growing steadily                 | CLIP embeddings scale with photo count | Expected; it's the only part of the backup with real growth in it       |
 | Machine stays off after an outage          | BIOS AC-restore lost (dead CMOS battery) | Reset it in BIOS on the next visit                                    |
 | Containers exited after an auto-reboot     | Bound to the tailnet IP before tailscaled had assigned it | `journalctl -u homelab-boot-reconcile -b` |
 | Backup service "never ran" but timer fired | `RemainAfterExit=yes` on the oneshot | Must stay absent — see [`../systemd/`](../systemd/homelab-backup.service) |
+| Pi leg missing from `healthcheck.sh`       | `/root/.restic-pi.env` not present yet | Expected until [pi-backup.md](pi-backup.md) setup is finished |
+| Pi backup green in `healthcheck.sh` but Immich restore comes up short | Snapshot is fresh but scoped wrong (bad path/exclude) | `sudo scripts/pi-verify.sh` — checks file count/size, not just reachability |
 
 ## Adding an app
 
@@ -222,12 +231,14 @@ tunnel ingress hand every hostname to traefik automatically.
 | `/srv/docker-data/<app>/`             | Persistent app state — backed up with exclusions                 |
 | `/srv/docker-data/restic-repo`        | Local restic repository                                          |
 | `/srv/media/restic-mirror`            | Mirror of the local repo, on the array                           |
-| `/srv/media/immich`                   | Immich library — mirrored, **not** in restic                     |
+| `/srv/media/immich`                   | Immich library — mirrored, and backed up to the Pi target only   |
 | `$RESTIC_B2_REPO`                     | Offsite repository — the copy that survives the house            |
+| `$PI_REPO`                            | Pi target — the only repo with Immich in it — see [pi-backup.md](pi-backup.md) |
 | `/srv/docker-data/cloudflared`        | Tunnel credentials — not backed up, recreate on restore          |
 | `/var/lib/homelab-backup-staging`     | Nightly SQL dumps + `last-run-status`                            |
-| `/root/.restic-password`              | Backup encryption key — guards **all three** repos               |
+| `/root/.restic-password`              | Backup encryption key — guards **all four** repos                |
 | `/root/.restic-b2.env`                | B2 key ID, application key, repo URL                             |
+| `/root/.restic-pi.env`                | Pi target repo URL (optional — absent skips the Pi leg)          |
 
 | Secret                    | Generate with                | Stored in                                          |
 | -------------------------- | ----------------------------- | --------------------------------------------------- |
@@ -237,6 +248,7 @@ tunnel ingress hand every hostname to traefik automatically.
 | Grafana admin password     | `openssl rand -hex 24`        | `monitoring/.env`                                   |
 | restic repo key            | `openssl rand -hex 32`        | `/root/.restic-password`                            |
 | Backblaze application key  | B2 console, scoped to one bucket | `/root/.restic-b2.env`                           |
+| Pi REST-server password    | `htpasswd -B -c /mnt/offsite/.htpasswd homelab-backup` (on the Pi) | `/root/.restic-pi.env` |
 | Cloudflare API token       | Cloudflare dashboard          | `traefik/.env`                                      |
 | Tunnel UUID + credentials  | `cloudflared tunnel create`   | `/srv/docker-data/cloudflared/`                     |
 | sops age key               | `age-keygen`                  | `~/.config/sops/age/keys.txt` — unlocks every `.enc` |
