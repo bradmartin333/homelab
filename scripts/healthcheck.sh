@@ -29,6 +29,9 @@ ARRAY_REPO=/srv/media/restic-mirror
 PASSFILE=/root/.restic-password
 B2_ENV=/root/.restic-b2.env
 PI_ENV=/root/.restic-pi.env
+# Tailscale MagicDNS name, not an IP — stable across the Pi's re-auths and
+# the planned relocation (see docs/pi-backup.md#relocation-in-progress).
+PI_SSH_HOST=brad@pi-backup
 STAGING=/var/lib/homelab-backup-staging
 MAX_SNAPSHOT_AGE_DAYS=2
 # Backblaze gives 10 GB free. Warn with headroom left to trim retention before
@@ -102,6 +105,22 @@ for d in $(lsblk -dno NAME,TYPE | awk '$2=="disk"{print "/dev/"$1}'); do
   smartctl -H "$d" >/dev/null 2>&1 \
     && ok "$d SMART healthy" || warn "$d SMART problem — run: smartctl -a $d"
 done
+
+# Only attempt this once the Pi target is configured — same gate PI_REPO
+# checks below use. Needs a one-time SSH-key + sudoers setup on the boxes;
+# see docs/pi-backup.md#smart-checks.
+if [ -f "$PI_ENV" ]; then
+  if ! ssh -o BatchMode=yes -o ConnectTimeout=5 "$PI_SSH_HOST" true 2>/dev/null; then
+    warn "$PI_SSH_HOST unreachable via ssh — skipping its SMART check (see docs/pi-backup.md#smart-checks)"
+  else
+    for d in $(ssh -o BatchMode=yes -o ConnectTimeout=5 "$PI_SSH_HOST" \
+                 "lsblk -dno NAME,TYPE | awk '\$2==\"disk\"{print \"/dev/\"\$1}'"); do
+      ssh -o BatchMode=yes -o ConnectTimeout=5 "$PI_SSH_HOST" "sudo -n smartctl -H $d" >/dev/null 2>&1 \
+        && ok "$PI_SSH_HOST $d SMART healthy" \
+        || warn "$PI_SSH_HOST $d SMART problem — run: ssh $PI_SSH_HOST sudo smartctl -a $d"
+    done
+  fi
+fi
 
 echo; echo "RAID"
 if grep -qs '^md' /proc/mdstat; then

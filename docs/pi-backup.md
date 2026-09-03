@@ -222,6 +222,43 @@ before trusting the Pi leg is really done.
 [restore.md](restore.md#verify-it-actually-works), which extends the
 existing B2 drill with a Pi/Immich restore step.
 
+## SMART checks
+
+`pi-verify.sh`'s `restic check --read-data-subset=5%` catches slow data
+corruption but not a failing drive directly — `healthcheck.sh`'s DRIVES
+section now also SSHes to the Pi and runs `smartctl -H` against its SSD,
+same as it already does for the tower's own disks. This needs a one-time
+setup on both boxes (password-gated, so run it by hand — see the note under
+[Current state](#current-state)):
+
+**1. Give the tower's root user an SSH key**, if it doesn't have one yet:
+```bash
+sudo ls /root/.ssh/id_ed25519.pub 2>/dev/null || sudo ssh-keygen -t ed25519 -f /root/.ssh/id_ed25519 -N ""
+```
+
+**2. Copy it to the Pi and accept its host key**, from the tower:
+```bash
+sudo ssh-copy-id -i /root/.ssh/id_ed25519.pub brad@pi-backup
+```
+`ssh-copy-id` also seeds root's `known_hosts`, so `healthcheck.sh`'s
+`BatchMode=yes` SSH calls won't hang on an unrecognized host key later.
+
+**3. Let `brad` run `smartctl -H` on the Pi without a password**, scoped to
+just that flag rather than opening up `sudo smartctl` generally:
+```bash
+echo 'brad ALL=(root) NOPASSWD: /usr/sbin/smartctl -H /dev/*' | sudo tee /etc/sudoers.d/homelab-smartctl
+sudo visudo -cf /etc/sudoers.d/homelab-smartctl   # syntax-check before trusting it
+```
+
+**4. Confirm it end-to-end**, from the tower:
+```bash
+sudo ssh -o BatchMode=yes brad@pi-backup sudo -n smartctl -H /dev/sda
+sudo /opt/homelab/scripts/healthcheck.sh   # DRIVES section should show pi-backup's SSD
+```
+If the Pi is ever unreachable or this setup hasn't been done, `healthcheck.sh`
+just warns and skips the Pi's SMART line rather than failing — see
+[operations.md](operations.md#warning-signs).
+
 ## Security notes
 
 - `--listen <PI_TS_IP>:8000` keeps the REST server off the house LAN

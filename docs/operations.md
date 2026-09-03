@@ -199,6 +199,7 @@ death reports as all-green.
 | Backup service "never ran" but timer fired | `RemainAfterExit=yes` on the oneshot | Must stay absent — see [`../systemd/`](../systemd/homelab-backup.service) |
 | Pi leg missing from `healthcheck.sh`       | `/root/.restic-pi.env` not present yet | Expected until [pi-backup.md](pi-backup.md) setup is finished |
 | Pi backup green in `healthcheck.sh` but Immich restore comes up short | Snapshot is fresh but scoped wrong (bad path/exclude) | `sudo scripts/pi-verify.sh` — checks file count/size, not just reachability |
+| Pi's SMART line missing/warning in `healthcheck.sh` | SSH key or sudoers rule for `smartctl` not set up on the Pi yet | [pi-backup.md#smart-checks](pi-backup.md#smart-checks) |
 
 ## Adding an app
 
