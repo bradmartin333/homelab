@@ -39,9 +39,7 @@ register.registerMetric(userMessageCounter);
 const TALKOMATIC_URL = process.env.TALKOMATIC_URL || "http://talkomatic:3000";
 const BOT_LOCATION = process.env.BOT_LOCATION || "The Cloud";
 const ROOM_NAME = process.env.ROOM_NAME || "Talkomatic";
-const TALKOMATIC_API_KEY =
-  process.env.TALKOMATIC_API_KEY ||
-  "tK_public_key_4f8a9b2c7d6e3f1a5g8h9i0j4k5l6m7n8o9p";
+const TALKOMATIC_API_KEY = process.env.TALKOMATIC_API_KEY;
 const HEALTH_PORT = Number(process.env.HEALTH_PORT || 8080);
 const TYPING_SETTLE_MS = Number(process.env.TYPING_SETTLE_MS || 2000); // let the focused user finish typing
 const REPLY_COOLDOWN_MS = Number(process.env.REPLY_COOLDOWN_MS || 2500); // min gap between bot replies
@@ -124,6 +122,13 @@ loadConfig();
 
 if (!process.env.ANTHROPIC_API_KEY) {
   console.error("ANTHROPIC_API_KEY is required");
+  process.exit(1);
+}
+
+if (!TALKOMATIC_API_KEY) {
+  console.error(
+    "TALKOMATIC_API_KEY is required - must match the talkomatic server's own TALKOMATIC_API_KEY",
+  );
   process.exit(1);
 }
 
