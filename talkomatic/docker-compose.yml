@@ -47,6 +47,11 @@ services:
     pull_policy: never
     container_name: talkomatic-ops
     restart: unless-stopped
+    # The image's baked-in `USER node` (Dockerfile) can't read/write
+    # docker.sock below - socket access is UID/GID-checked, bind-mounting it
+    # in isn't enough. Root here adds no real new exposure: anything that can
+    # talk to docker.sock already has host-root-equivalent control anyway.
+    user: root
     security_opt: [no-new-privileges:true]
     network_mode: "service:talkomatic"
     volumes:
