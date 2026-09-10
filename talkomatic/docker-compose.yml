@@ -3,6 +3,12 @@ services:
     build:
       context: https://github.com/bradmartin333/talkomatic-classic.git#${TALKOMATIC_BRANCH:-main}
     image: talkomatic:local
+    # Giving this a real `image:` tag (so talkomatic-ops below can share it)
+    # makes `docker compose pull` treat it as a registry reference and try
+    # to pull it, unlike a build-only service with no `image:` key (compare
+    # talkomatic-bot, which is skipped for exactly that reason). `build`
+    # tells compose this is always built locally, never pulled.
+    pull_policy: build
     container_name: talkomatic
     restart: unless-stopped
     env_file: .env
@@ -36,6 +42,9 @@ services:
   # Idle by design (`sleep infinity`); commands run via `docker compose exec`.
   talkomatic-ops:
     image: talkomatic:local
+    # No `build:` of its own, and never pull it either - it only ever runs
+    # the image talkomatic's own build (see pull_policy above) just produced.
+    pull_policy: never
     container_name: talkomatic-ops
     restart: unless-stopped
     security_opt: [no-new-privileges:true]
