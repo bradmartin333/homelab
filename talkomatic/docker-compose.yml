@@ -2,6 +2,7 @@ services:
   talkomatic:
     build:
       context: https://github.com/bradmartin333/talkomatic-classic.git#${TALKOMATIC_BRANCH:-main}
+    image: talkomatic:local
     container_name: talkomatic
     restart: unless-stopped
     env_file: .env
@@ -22,6 +23,30 @@ services:
       - "traefik.http.routers.talkomatic.tls.certresolver=cloudflare"
       - "traefik.http.routers.talkomatic.middlewares=rate-limit@file"
       - "traefik.http.services.talkomatic.loadbalancer.server.port=3000"
+      - "com.centurylinklabs.watchtower.enable=false"
+
+  # tools/ops.js bots sidecar (talkomatic-classic repo). Reuses the image
+  # built above via the shared `image:` tag - no separate build step, so
+  # redeploy.sh's rebuild of `talkomatic` keeps this current for free.
+  # `network_mode: service:talkomatic` shares its network namespace so
+  # list/kick/capacity still work here too (loopback auth on /operator/*,
+  # see operatorOnly in server.js), while talkomatic itself never gets the
+  # docker.sock/bots mounts below - those are host-root-equivalent access
+  # and this is the only container here on the public `proxy` network.
+  # Idle by design (`sleep infinity`); commands run via `docker compose exec`.
+  talkomatic-ops:
+    image: talkomatic:local
+    container_name: talkomatic-ops
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    network_mode: "service:talkomatic"
+    volumes:
+      - ../talkomatic-bot/bots:/opt/homelab/talkomatic-bot/bots
+      - /var/run/docker.sock:/var/run/docker.sock
+    entrypoint: ["sleep", "infinity"]
+    depends_on:
+      - talkomatic
+    labels:
       - "com.centurylinklabs.watchtower.enable=false"
 
 networks:

@@ -12,10 +12,17 @@
 # This script forces both rebuilds every run so upstream talkomatic-classic
 # commits and local bot code changes actually land.
 #
+# talkomatic-ops (tools/ops.js's bots sidecar) rides along with talkomatic's
+# rebuild for free - it shares talkomatic's `image:` tag with no `build:` of
+# its own, so rebuilding talkomatic already refreshes it. It still needs an
+# explicit --force-recreate below since a new image alone doesn't restart a
+# running container.
+#
 # Override the repo location with HOMELAB_DIR (default: /opt/homelab).
-# Pass --chat-only (or -c) to rebuild and restart just talkomatic and
-# talkomatic-bot — skips the network check and full-stack pull/up, for when
-# the rest of the stack is already running and doesn't need to come down.
+# Pass --chat-only (or -c) to rebuild and restart just talkomatic,
+# talkomatic-ops, and talkomatic-bot — skips the network check and
+# full-stack pull/up, for when the rest of the stack is already running and
+# doesn't need to come down.
 
 set -euo pipefail
 
@@ -76,8 +83,8 @@ if ! $CHAT_ONLY; then
   docker compose restart prometheus
 fi
 
-echo "==> forcing talkomatic and talkomatic-bot to pick up the new builds"
-docker compose up -d --force-recreate talkomatic talkomatic-bot
+echo "==> forcing talkomatic, talkomatic-ops, and talkomatic-bot to pick up the new builds"
+docker compose up -d --force-recreate talkomatic talkomatic-ops talkomatic-bot
 
 echo "==> pruning dangling images and build cache"
 docker image prune -f
