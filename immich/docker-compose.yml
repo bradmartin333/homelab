@@ -1,6 +1,6 @@
 services:
   immich-server:
-    image: ghcr.io/immich-app/immich-server:v3.1.0
+    image: ghcr.io/immich-app/immich-server:v3
     container_name: immich-server
     restart: unless-stopped
     env_file: .env
@@ -37,7 +37,7 @@ services:
       - "${TAILSCALE_IP:?set TAILSCALE_IP in immich/.env}:2283:2283"
 
   immich-machine-learning:
-    image: ghcr.io/immich-app/immich-machine-learning:v3.1.0
+    image: ghcr.io/immich-app/immich-machine-learning:v3
     container_name: immich-machine-learning
     restart: unless-stopped
     security_opt: [no-new-privileges:true]
