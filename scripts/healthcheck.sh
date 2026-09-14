@@ -202,7 +202,11 @@ fi
 echo; echo "NETWORK"
 tailscale status >/dev/null 2>&1 && ok "tailscale connected" || bad "tailscale down"
 for url in $PUBLIC_URLS; do
-  curl -sfI --max-time 15 "$url" >/dev/null \
+  # A GET with the body discarded, not a HEAD (-I): meals' FastAPI root only
+  # registers GET and answers HEAD with 405, so a HEAD-based check reported it
+  # down while the app was actually serving fine. GET works on anything HEAD
+  # does and doesn't depend on every app implementing HEAD.
+  curl -sf --max-time 15 -o /dev/null "$url" \
     && ok "$url responding" || bad "$url not responding"
 done
 
