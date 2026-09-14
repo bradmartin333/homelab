@@ -1,7 +1,7 @@
 {
   "uid": "meals-homelab",
   "title": "Meals",
-  "description": "Meals app metrics — HTTP traffic, usage gauges, and domain events (backend/app/metrics.py).",
+  "description": "Meals app metrics — recipe count, memory, and CPU only (see prometheus.yml's metric_relabel_configs for the meals job).",
   "tags": ["homelab", "meals"],
   "timezone": "browser",
   "schemaVersion": 39,
@@ -11,217 +11,18 @@
   "panels": [
     {
       "id": 1,
-      "type": "row",
-      "title": "Traffic",
-      "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
-      "panels": []
-    },
-    {
-      "id": 2,
-      "type": "stat",
-      "title": "Request rate",
-      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 1 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [
-        { "expr": "sum(rate(meals_http_requests_total[5m]))", "refId": "A" }
-      ],
-      "fieldConfig": { "defaults": { "unit": "reqps", "color": { "mode": "thresholds" } }, "overrides": [] }
-    },
-    {
-      "id": 3,
-      "type": "stat",
-      "title": "Error rate (5xx)",
-      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 1 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [
-        { "expr": "sum(rate(meals_http_requests_total{status=~\"5..\"}[5m]))", "refId": "A" }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "reqps",
-          "color": { "mode": "thresholds" },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 0.01 }]
-          }
-        },
-        "overrides": []
-      }
-    },
-    {
-      "id": 4,
-      "type": "stat",
-      "title": "p95 latency",
-      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 1 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [
-        {
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(meals_http_request_duration_seconds_bucket[5m])))",
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": { "defaults": { "unit": "s", "color": { "mode": "thresholds" } }, "overrides": [] }
-    },
-    {
-      "id": 5,
-      "type": "stat",
-      "title": "p99 latency",
-      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 1 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [
-        {
-          "expr": "histogram_quantile(0.99, sum by (le) (rate(meals_http_request_duration_seconds_bucket[5m])))",
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": { "defaults": { "unit": "s", "color": { "mode": "thresholds" } }, "overrides": [] }
-    },
-    {
-      "id": 6,
-      "type": "timeseries",
-      "title": "Requests by route (rate)",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 7 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [
-        { "expr": "sum by (route) (rate(meals_http_requests_total[5m]))", "legendFormat": "{{route}}", "refId": "A" }
-      ],
-      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] }
-    },
-    {
-      "id": 7,
-      "type": "timeseries",
-      "title": "Requests by status",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 7 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [
-        { "expr": "sum by (status) (rate(meals_http_requests_total[5m]))", "legendFormat": "{{status}}", "refId": "A" }
-      ],
-      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] }
-    },
-    {
-      "id": 8,
-      "type": "timeseries",
-      "title": "Latency quantiles",
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 15 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [
-        {
-          "expr": "histogram_quantile(0.50, sum by (le) (rate(meals_http_request_duration_seconds_bucket[5m])))",
-          "legendFormat": "p50",
-          "refId": "A"
-        },
-        {
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(meals_http_request_duration_seconds_bucket[5m])))",
-          "legendFormat": "p95",
-          "refId": "B"
-        },
-        {
-          "expr": "histogram_quantile(0.99, sum by (le) (rate(meals_http_request_duration_seconds_bucket[5m])))",
-          "legendFormat": "p99",
-          "refId": "C"
-        }
-      ],
-      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] }
-    },
-    {
-      "id": 9,
-      "type": "row",
-      "title": "Usage",
-      "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 },
-      "panels": []
-    },
-    {
-      "id": 10,
-      "type": "stat",
-      "title": "Households",
-      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 24 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [{ "expr": "meals_households_total", "refId": "A" }],
-      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "thresholds" } }, "overrides": [] }
-    },
-    {
-      "id": 11,
-      "type": "stat",
-      "title": "Users",
-      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 24 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [{ "expr": "meals_users_total", "refId": "A" }],
-      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "thresholds" } }, "overrides": [] }
-    },
-    {
-      "id": 12,
       "type": "stat",
       "title": "Recipes",
-      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 24 },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 0 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [{ "expr": "meals_recipes_total", "refId": "A" }],
       "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "thresholds" } }, "overrides": [] }
     },
     {
-      "id": 13,
-      "type": "timeseries",
-      "title": "Households vs. MAX_HOUSEHOLDS",
-      "description": "Limit is +Inf (never drawn) when MAX_HOUSEHOLDS is unset.",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 30 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [
-        { "expr": "meals_households_total", "legendFormat": "households", "refId": "A" },
-        { "expr": "meals_households_limit", "legendFormat": "limit", "refId": "B" }
-      ],
-      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] }
-    },
-    {
-      "id": 14,
-      "type": "timeseries",
-      "title": "Users vs. MAX_USERS",
-      "description": "Limit is +Inf (never drawn) when MAX_USERS is unset.",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 30 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [
-        { "expr": "meals_users_total", "legendFormat": "users", "refId": "A" },
-        { "expr": "meals_users_limit", "legendFormat": "limit", "refId": "B" }
-      ],
-      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] }
-    },
-    {
-      "id": 15,
-      "type": "row",
-      "title": "Events",
-      "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 38 },
-      "panels": []
-    },
-    {
-      "id": 16,
-      "type": "timeseries",
-      "title": "Domain events (rate)",
-      "description": "meals.events log stream, numerically: registrations, deletions, ingest outcomes, etc.",
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 39 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [
-        {
-          "expr": "sum by (event, outcome) (rate(meals_events_total[5m]))",
-          "legendFormat": "{{event}} / {{outcome}}",
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] }
-    },
-    {
-      "id": 17,
-      "type": "row",
-      "title": "Process",
-      "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 47 },
-      "panels": []
-    },
-    {
-      "id": 18,
+      "id": 2,
       "type": "timeseries",
       "title": "Resident memory",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 48 },
+      "gridPos": { "h": 8, "w": 9, "x": 6, "y": 0 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         { "expr": "process_resident_memory_bytes{job=\"meals\"}", "legendFormat": "RSS", "refId": "A" }
@@ -229,10 +30,10 @@
       "fieldConfig": { "defaults": { "unit": "decbytes" }, "overrides": [] }
     },
     {
-      "id": 19,
+      "id": 3,
       "type": "timeseries",
       "title": "CPU usage",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 48 },
+      "gridPos": { "h": 8, "w": 9, "x": 15, "y": 0 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         { "expr": "rate(process_cpu_seconds_total{job=\"meals\"}[5m])", "legendFormat": "cores", "refId": "A" }
