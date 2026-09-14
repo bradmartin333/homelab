@@ -2,15 +2,15 @@
 # redeploy.sh — bring the stack up to date and (re)start whatever changed.
 #
 # `docker compose up -d` alone is enough for every image-based service —
-# watchtower already pulls and restarts those on its own schedule. talkomatic
-# and talkomatic-bot are the exception: they build from source (talkomatic
-# from a remote git context, talkomatic-bot from the local talkomatic-bot/app
-# Dockerfile) instead of pulling a registry image, and are explicitly
-# excluded from watchtower since watchtower can't rebuild either kind of
-# build context. Compose also only builds an image when one is missing, so a
-# plain `up -d` would silently keep serving whatever image was last built.
-# This script forces both rebuilds every run so upstream talkomatic-classic
-# commits and local bot code changes actually land.
+# watchtower already pulls and restarts those on its own schedule. talkomatic,
+# talkomatic-bot, and meals are the exception: they build from source
+# (talkomatic and meals from a remote git context, talkomatic-bot from the
+# local talkomatic-bot/app Dockerfile) instead of pulling a registry image,
+# and are explicitly excluded from watchtower since watchtower can't rebuild
+# any of these build contexts. Compose also only builds an image when one is
+# missing, so a plain `up -d` would silently keep serving whatever image was
+# last built. This script forces all three rebuilds every run so upstream
+# talkomatic-classic/meals commits and local bot code changes actually land.
 #
 # talkomatic-ops (tools/ops.js's bots sidecar) rides along with talkomatic's
 # rebuild for free - it shares talkomatic's `image:` tag with no `build:` of
@@ -54,6 +54,19 @@ echo "==> rebuilding talkomatic-bot from local source"
 docker compose build --pull talkomatic-bot
 
 if ! $CHAT_ONLY; then
+  # meals builds from someone else's repo, so a broken upstream push or a
+  # GitHub outage must not block the rest of the redeploy. On failure, leave
+  # meals out of the `up` calls below (its pull_policy: build would otherwise
+  # make `up` retry the build) so its current container keeps running.
+  echo "==> rebuilding meals from latest marco308/meals main"
+  MEALS_OK=true
+  UP_SERVICES=()
+  if ! docker compose build --pull meals; then
+    MEALS_OK=false
+    echo "warning: meals build failed — keeping the current meals container" >&2
+    mapfile -t UP_SERVICES < <(docker compose config --services | grep -vx meals)
+  fi
+
   # Every service pins a fixed container_name, but that name is global to the
   # Docker daemon, not scoped to this compose project. Running `docker
   # compose` from inside a service's own subdirectory (e.g. to test one
@@ -72,7 +85,7 @@ if ! $CHAT_ONLY; then
   done
 
   echo "==> starting stack"
-  docker compose up -d --remove-orphans
+  docker compose up -d --remove-orphans "${UP_SERVICES[@]}"
 
   # `up -d` only recreates a container when its definition changes (image,
   # env, mounts, ...) — it can't see that prometheus.yml's *contents*
@@ -81,6 +94,11 @@ if ! $CHAT_ONLY; then
   # up scrape-config edits.
   echo "==> restarting prometheus to pick up prometheus.yml changes"
   docker compose restart prometheus
+
+  if $MEALS_OK; then
+    echo "==> forcing meals to pick up the new build"
+    docker compose up -d --force-recreate meals
+  fi
 fi
 
 echo "==> forcing talkomatic, talkomatic-ops, and talkomatic-bot to pick up the new builds"
@@ -92,3 +110,8 @@ docker builder prune -f
 
 echo "==> status"
 docker compose ps
+
+if ! $CHAT_ONLY && ! $MEALS_OK; then
+  echo "warning: meals was NOT rebuilt — see the build error above" >&2
+  exit 1
+fi

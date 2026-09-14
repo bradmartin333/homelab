@@ -1,0 +1,40 @@
+services:
+  meals:
+    build:
+      context: https://github.com/marco308/meals.git#${MEALS_BRANCH:-main}
+      dockerfile: backend/Dockerfile
+    image: meals:local
+    pull_policy: build
+    container_name: meals
+    restart: unless-stopped
+    env_file: .env
+    security_opt: [no-new-privileges:true]
+    environment:
+      DATABASE_URL: "postgresql+asyncpg://meals:${MEALS_DB_PASSWORD}@postgres:5432/meals"
+      ENVIRONMENT: production
+      # Trust traefik's X-Forwarded-For/-Proto so the per-IP login rate limit
+      # sees real clients instead of one shared traefik address.
+      FORWARDED_ALLOW_IPS: "172.20.0.0/16"
+      METRICS_TOKEN: "d9368934b5c3e2e5f6cee013868be97037c06189f7a761ac32f5290f9d0b247f"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - proxy
+      - db_internal
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.meals.rule=Host(`${MEALS_DOMAIN}`) && !PathPrefix(`/metrics`)"
+      - "traefik.http.routers.meals.entrypoints=websecure"
+      - "traefik.http.routers.meals.tls=true"
+      - "traefik.http.routers.meals.tls.certresolver=cloudflare"
+      - "traefik.http.routers.meals.middlewares=rate-limit@file"
+      - "traefik.http.services.meals.loadbalancer.server.port=8000"
+      - "com.centurylinklabs.watchtower.enable=false"
+
+networks:
+  proxy:
+    external: true
+  db_internal:
+    external: true
