@@ -54,8 +54,18 @@ echo "==> rebuilding talkomatic-bot from local source"
 docker compose build --pull talkomatic-bot
 
 if ! $CHAT_ONLY; then
+  # meals builds from someone else's repo, so a broken upstream push or a
+  # GitHub outage must not block the rest of the redeploy. On failure, leave
+  # meals out of the `up` calls below (its pull_policy: build would otherwise
+  # make `up` retry the build) so its current container keeps running.
   echo "==> rebuilding meals from latest marco308/meals main"
-  docker compose build --pull meals
+  MEALS_OK=true
+  UP_SERVICES=()
+  if ! docker compose build --pull meals; then
+    MEALS_OK=false
+    echo "warning: meals build failed — keeping the current meals container" >&2
+    mapfile -t UP_SERVICES < <(docker compose config --services | grep -vx meals)
+  fi
 
   # Every service pins a fixed container_name, but that name is global to the
   # Docker daemon, not scoped to this compose project. Running `docker
@@ -75,7 +85,7 @@ if ! $CHAT_ONLY; then
   done
 
   echo "==> starting stack"
-  docker compose up -d --remove-orphans
+  docker compose up -d --remove-orphans "${UP_SERVICES[@]}"
 
   # `up -d` only recreates a container when its definition changes (image,
   # env, mounts, ...) — it can't see that prometheus.yml's *contents*
@@ -85,8 +95,10 @@ if ! $CHAT_ONLY; then
   echo "==> restarting prometheus to pick up prometheus.yml changes"
   docker compose restart prometheus
 
-  echo "==> forcing meals to pick up the new build"
-  docker compose up -d --force-recreate meals
+  if $MEALS_OK; then
+    echo "==> forcing meals to pick up the new build"
+    docker compose up -d --force-recreate meals
+  fi
 fi
 
 echo "==> forcing talkomatic, talkomatic-ops, and talkomatic-bot to pick up the new builds"
@@ -98,3 +110,8 @@ docker builder prune -f
 
 echo "==> status"
 docker compose ps
+
+if ! $CHAT_ONLY && ! $MEALS_OK; then
+  echo "warning: meals was NOT rebuilt — see the build error above" >&2
+  exit 1
+fi

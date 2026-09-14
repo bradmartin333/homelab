@@ -23,7 +23,7 @@ MOUNTS="/ /srv/docker-data /srv/media"
 # filesystem. If sdb or md0 fails to come up, the path still exists and both
 # the stack and restic would silently write to the OS disk instead.
 REQUIRED_MOUNTPOINTS="/srv/docker-data /srv/media"
-PUBLIC_URLS="https://${VIKUNJA_DOMAIN} https://${IMMICH_DOMAIN} https://${MEALS_DOMAIN}"
+PUBLIC_DOMAIN_VARS="VIKUNJA_DOMAIN IMMICH_DOMAIN MEALS_DOMAIN"
 LOCAL_REPO=/srv/docker-data/restic-repo
 ARRAY_REPO=/srv/media/restic-mirror
 PASSFILE=/root/.restic-password
@@ -201,7 +201,13 @@ fi
 
 echo; echo "NETWORK"
 tailscale status >/dev/null 2>&1 && ok "tailscale connected" || bad "tailscale down"
-for url in $PUBLIC_URLS; do
+for var in $PUBLIC_DOMAIN_VARS; do
+  domain="${!var:-}"
+  if [ -z "$domain" ]; then
+    warn "$var not set in $REPO_DIR/.env — skipping its URL check"
+    continue
+  fi
+  url="https://$domain"
   # A GET with the body discarded, not a HEAD (-I): meals' FastAPI root only
   # registers GET and answers HEAD with 405, so a HEAD-based check reported it
   # down while the app was actually serving fine. GET works on anything HEAD
