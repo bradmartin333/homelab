@@ -1,18 +1,9 @@
 services:
-  # Upstream (github.com/marco308/meals) ships db/backup/mcp services too, all
-  # dropped here: db is replaced by the shared `postgres` container (see
-  # postgres/docker-compose.yml) so meals' data rides the same pg_dumpall
-  # nightly backup as everything else, backup would just duplicate that, and
-  # the api container already serves the same /mcp endpoint the standalone
-  # mcp sidecar exists only to scale independently in upstream's swarm setup.
   meals:
     build:
       context: https://github.com/marco308/meals.git#${MEALS_BRANCH:-main}
       dockerfile: backend/Dockerfile
     image: meals:local
-    # Same reasoning as talkomatic: this always builds locally from the git
-    # context above and is never pulled, and redeploy.sh force-rebuilds it on
-    # every run so upstream commits actually land.
     pull_policy: build
     container_name: meals
     restart: unless-stopped
