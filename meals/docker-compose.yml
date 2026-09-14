@@ -1,0 +1,48 @@
+services:
+  # Upstream (github.com/marco308/meals) ships db/backup/mcp services too, all
+  # dropped here: db is replaced by the shared `postgres` container (see
+  # postgres/docker-compose.yml) so meals' data rides the same pg_dumpall
+  # nightly backup as everything else, backup would just duplicate that, and
+  # the api container already serves the same /mcp endpoint the standalone
+  # mcp sidecar exists only to scale independently in upstream's swarm setup.
+  meals:
+    build:
+      context: https://github.com/marco308/meals.git#${MEALS_BRANCH:-main}
+      dockerfile: backend/Dockerfile
+    image: meals:local
+    # Same reasoning as talkomatic: this always builds locally from the git
+    # context above and is never pulled, and redeploy.sh force-rebuilds it on
+    # every run so upstream commits actually land.
+    pull_policy: build
+    container_name: meals
+    restart: unless-stopped
+    env_file: .env
+    security_opt: [no-new-privileges:true]
+    environment:
+      # Overrides the image's default sqlite DATABASE_URL. meals/user db must
+      # already exist in the shared postgres cluster before first start — see
+      # meals/.env.example.
+      DATABASE_URL: "postgresql+asyncpg://meals:${MEALS_DB_PASSWORD}@postgres:5432/meals"
+      ENVIRONMENT: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - proxy
+      - db_internal
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.meals.rule=Host(`${MEALS_DOMAIN}`)"
+      - "traefik.http.routers.meals.entrypoints=websecure"
+      - "traefik.http.routers.meals.tls=true"
+      - "traefik.http.routers.meals.tls.certresolver=cloudflare"
+      - "traefik.http.routers.meals.middlewares=rate-limit@file"
+      - "traefik.http.services.meals.loadbalancer.server.port=8000"
+      - "com.centurylinklabs.watchtower.enable=false"
+
+networks:
+  proxy:
+    external: true
+  db_internal:
+    external: true

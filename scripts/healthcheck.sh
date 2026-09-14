@@ -17,13 +17,13 @@ else
   exit 1
 fi
 
-CONTAINERS="traefik postgres vikunja cloudflared watchtower immich-server immich-machine-learning immich-redis immich-postgres talkomatic talkomatic-bot grafana prometheus node-exporter cadvisor postgres-exporter immich-postgres-exporter"
+CONTAINERS="traefik postgres vikunja meals cloudflared watchtower immich-server immich-machine-learning immich-redis immich-postgres talkomatic talkomatic-bot grafana prometheus node-exporter cadvisor postgres-exporter immich-postgres-exporter"
 MOUNTS="/ /srv/docker-data /srv/media"
 # Subset of MOUNTS that must be a real mount, not a directory on the root
 # filesystem. If sdb or md0 fails to come up, the path still exists and both
 # the stack and restic would silently write to the OS disk instead.
 REQUIRED_MOUNTPOINTS="/srv/docker-data /srv/media"
-PUBLIC_URLS="https://${VIKUNJA_DOMAIN} https://${IMMICH_DOMAIN}"
+PUBLIC_URLS="https://${VIKUNJA_DOMAIN} https://${IMMICH_DOMAIN} https://${MEALS_DOMAIN}"
 LOCAL_REPO=/srv/docker-data/restic-repo
 ARRAY_REPO=/srv/media/restic-mirror
 PASSFILE=/root/.restic-password

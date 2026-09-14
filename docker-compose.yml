@@ -2,6 +2,7 @@ include:
   - traefik/docker-compose.yml
   - postgres/docker-compose.yml
   - vikunja/docker-compose.yml
+  - meals/docker-compose.yml
   - cloudflared/docker-compose.yml
   - immich/docker-compose.yml
   - talkomatic/docker-compose.yml
