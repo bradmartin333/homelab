@@ -73,3 +73,10 @@ scrape_configs:
   - job_name: talkomatic-bot
     static_configs:
       - targets: ["talkomatic-bot:8080"]
+
+  - job_name: meals
+    metrics_path: /metrics
+    authorization:
+      credentials: d9368934b5c3e2e5f6cee013868be97037c06189f7a761ac32f5290f9d0b247f
+    static_configs:
+      - targets: ["meals:8000"]

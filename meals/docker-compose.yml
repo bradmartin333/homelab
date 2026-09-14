@@ -15,6 +15,12 @@ services:
       # meals/.env.example.
       DATABASE_URL: "postgresql+asyncpg://meals:${MEALS_DB_PASSWORD}@postgres:5432/meals"
       ENVIRONMENT: production
+      # Gates GET /metrics. Not really a secret, same reasoning as
+      # WATCHTOWER_HTTP_API_TOKEN below (watchtower/docker-compose.yml): the
+      # traefik router rule above excludes /metrics from the public route, so
+      # this is only ever reachable from other containers on `proxy`, never
+      # from the internet. Must match monitoring/prometheus/prometheus.yml.
+      METRICS_TOKEN: "d9368934b5c3e2e5f6cee013868be97037c06189f7a761ac32f5290f9d0b247f"
     depends_on:
       postgres:
         condition: service_healthy
@@ -24,7 +30,11 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=proxy"
-      - "traefik.http.routers.meals.rule=Host(`${MEALS_DOMAIN}`)"
+      # Excludes /metrics from the public route so METRICS_TOKEN below is
+      # never internet-reachable in the first place, same as vikunja's
+      # !PathPrefix(`/api/v1/metrics`). Prometheus still reaches it directly
+      # over the `proxy` network, which Traefik never sits in front of.
+      - "traefik.http.routers.meals.rule=Host(`${MEALS_DOMAIN}`) && !PathPrefix(`/metrics`)"
       - "traefik.http.routers.meals.entrypoints=websecure"
       - "traefik.http.routers.meals.tls=true"
       - "traefik.http.routers.meals.tls.certresolver=cloudflare"
