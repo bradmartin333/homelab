@@ -196,9 +196,10 @@ Order matters:
    `homelab-secrets.sh` deliberately doesn't touch (glob is `*/.env`, one
    level deep only). The root `.env` interpolates `${TRAEFIK_BIND_IP}`,
    `${ACME_EMAIL}`, `${IMMICH_DOMAIN}`, `${VIKUNJA_DOMAIN}`,
-   `${TALKOMATIC_DOMAIN}`, `${TALKOMATIC_BRANCH}` directly into the compose
-   files — none of it is secret (a domain name is public in DNS regardless),
-   so it's a plain template rather than sops-encrypted:
+   `${TALKOMATIC_DOMAIN}`, `${MEALS_DOMAIN}`, `${TALKOMATIC_BRANCH}`,
+   `${MEALS_BRANCH}` directly into the compose files — none of it is
+   secret (a domain name is public in DNS regardless), so it's a plain
+   template rather than sops-encrypted:
    ```bash
    cp /opt/homelab/.env.example /opt/homelab/.env
    $EDITOR /opt/homelab/.env      # fill in your real domain/IP/email

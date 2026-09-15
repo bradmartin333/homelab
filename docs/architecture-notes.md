@@ -32,6 +32,43 @@ actually initialized with — the healthcheck reads `$POSTGRES_USER`/
 docker exec immich-postgres pg_isready -U "$(docker exec immich-postgres printenv POSTGRES_USER)"
 ```
 
+## Which `.env` a variable goes in
+
+Compose fills in `${VAR}` from two kinds of `.env`. The root
+`/opt/homelab/.env` applies to every included compose file. An app's own
+`<app>/.env` applies only to that app's compose file — and any service with
+`env_file: .env` (most of them) also gets everything in it as container
+environment.
+
+When both set the same variable, the root wins, silently (a variable exported
+in the shell beats both). Checked on compose v5.5.1 with a throwaway
+`include:` project:
+
+```
+set in <app>/.env only     → <app>/.env value
+set in root and <app>/.env → root value
+also exported in shell     → shell value
+```
+
+So each variable gets exactly one home:
+
+- **Root `.env`** — non-secret settings read at build or routing time:
+  domains, `TRAEFIK_BIND_IP`, `ACME_EMAIL`, and the `*_BRANCH` build refs. A
+  plain file copied from `.env.example`, not in git.
+- **`<app>/.env`** — secrets and settings only that app uses
+  (`VIKUNJA_DB_PASSWORD`, `MEALS_DB_PASSWORD`, `UPLOAD_LOCATION`).
+  sops-encrypted to `.env.enc` and committed.
+
+`TALKOMATIC_BRANCH` once ended up in `talkomatic/.env` instead of the root. It
+worked only because the root `.env` didn't set it — rebuilding the root from
+`.env.example` would have made the talkomatic copy a silent no-op — and it
+leaked into the talkomatic container's environment. To see what compose
+actually resolved rather than trusting either file:
+
+```bash
+docker compose -f /opt/homelab/docker-compose.yml config | grep 'context:.*#'
+```
+
 ## Tailscale IP is a variable, not a literal
 
 `immich/docker-compose.yml` binds port 2283 to `${TAILSCALE_IP}` rather than a
