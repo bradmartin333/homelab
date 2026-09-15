@@ -18,12 +18,12 @@ services:
       WATCHTOWER_SCHEDULE: "0 0 5 * * *"
       WATCHTOWER_TIMEOUT: "60s"
       TZ: "America/New_York"
+      # The metrics API needs WATCHTOWER_HTTP_API_TOKEN, which comes from .env
+      # via env_file (prometheus reads the same value, see
+      # monitoring/docker-compose.yml). Without it watchtower doesn't just
+      # skip metrics: it logs "API setup failed", sets its own restart policy
+      # to "no" and exits, so it stays down.
       WATCHTOWER_HTTP_API_METRICS: "true"
-      # Not a real secret: this port is only reachable over the internal
-      # `monitoring_internal` docker network, never published to the host.
-      # It exists only because Watchtower's metrics feature requires a token
-      # to enable at all. Must match monitoring/prometheus/prometheus.yml.
-      WATCHTOWER_HTTP_API_TOKEN: "b54c8dd5dbbfd4cdcaa58e3f8a6a0aea"
       # WATCHTOWER_NOTIFICATION_REPORT only controls what data the notification
       # template receives (a structured session report vs. raw log lines) - it
       # does NOT by itself suppress the email on a no-op run. Left on because

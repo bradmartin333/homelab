@@ -58,7 +58,11 @@ So each variable gets exactly one home:
   A plain file copied from `.env.example`, not in git.
 - **`<app>/.env`** — secrets and settings only that app uses
   (`VIKUNJA_DB_PASSWORD`, `MEALS_DB_PASSWORD`, `UPLOAD_LOCATION`).
-  sops-encrypted to `.env.enc` and committed.
+  sops-encrypted to `.env.enc` and committed. This holds even for a
+  low-stakes secret, like a metrics scrape token on an internal network.
+  Never write one as a literal in a compose file or `prometheus.yml`: those
+  are plaintext in git, and a leaked value stays in the history after it's
+  removed.
 
 `TALKOMATIC_BRANCH` once ended up in `talkomatic/.env` instead of the root. It
 worked only because the root `.env` didn't set it — rebuilding the root from

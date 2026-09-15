@@ -222,7 +222,9 @@ death reports as all-green.
    covered — it's backed up wholesale precisely so a new app is protected by
    default rather than silently missing until the day it matters.
 5. Add a scrape target in `monitoring/prometheus/prometheus.yml` if it exposes
-   metrics.
+   metrics. If the endpoint needs a token, keep the token in `<appname>/.env`
+   and pass it to prometheus the way the meals and watchtower jobs do (see the
+   prometheus service in `monitoring/docker-compose.yml`), never as a literal.
 6. Encrypt and commit: `./homelab-secrets.sh commit "add <appname>"`.
 7. `scripts/redeploy.sh`, then check `docker logs traefik` for the certificate.
 

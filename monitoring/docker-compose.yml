@@ -27,6 +27,32 @@ services:
     container_name: prometheus
     restart: unless-stopped
     security_opt: [no-new-privileges:true]
+    # The meals and watchtower scrape tokens. prometheus.yml can't expand
+    # environment variables, so the shell below writes each token to a file
+    # under /tmp (umask 077, so only the image's `nobody` user can read it),
+    # then execs prometheus. Its jobs read them with credentials_file.
+    # Overriding entrypoint drops the image's CMD, so its two default flags
+    # are repeated here. Recheck them if the image ever changes its defaults:
+    #   docker inspect prom/prometheus:latest --format '{{json .Config.Cmd}}'
+    #
+    # Chosen over bind-mounting token files from /srv/docker-data/monitoring/
+    # so each token keeps one home, its app's .env. The trade-off, the same
+    # one postgres-exporter accepts below: everything else in those two files
+    # lands in prometheus's environment too. That includes MEALS_DB_PASSWORD
+    # and watchtower's notification URL, which holds the Gmail app password.
+    env_file:
+      - ../meals/.env
+      - ../watchtower/.env
+    entrypoint:
+      - /bin/sh
+      - -c
+      - >-
+        umask 077 &&
+        printf %s "$$METRICS_TOKEN" > /tmp/meals-metrics-token &&
+        printf %s "$$WATCHTOWER_HTTP_API_TOKEN" > /tmp/watchtower-api-token &&
+        exec /bin/prometheus
+        --config.file=/etc/prometheus/prometheus.yml
+        --storage.tsdb.path=/prometheus
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - /srv/docker-data/monitoring/prometheus:/prometheus

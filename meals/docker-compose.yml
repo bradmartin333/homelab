@@ -15,7 +15,10 @@ services:
       # Trust traefik's X-Forwarded-For/-Proto so the per-IP login rate limit
       # sees real clients instead of one shared traefik address.
       FORWARDED_ALLOW_IPS: "172.20.0.0/16"
-      METRICS_TOKEN: "d9368934b5c3e2e5f6cee013868be97037c06189f7a761ac32f5290f9d0b247f"
+      # METRICS_TOKEN comes from .env via env_file (prometheus reads the same
+      # value, see monitoring/docker-compose.yml). Unset, meals fails safe:
+      # GET /metrics answers 404 and its gauge refresher never starts. Set, it
+      # wants `Authorization: Bearer <token>` and answers 401 otherwise.
     depends_on:
       postgres:
         condition: service_healthy
