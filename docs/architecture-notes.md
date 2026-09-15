@@ -103,6 +103,14 @@ now waits for the address and brings them up; if this symptom appears after a
 reboot, read `journalctl -u homelab-boot-reconcile -b` before touching any
 `.env`.
 
+It recreates them rather than restarting them. After the 2026-09-15 reboot,
+all four failed containers had lost their internal network (vikunja lost
+`db_internal`, grafana had no network left at all). Restarting reuses those
+same containers, so vikunja crash-looped on `lookup postgres` and
+immich-server looped too. The reconcile then checked once, a second later,
+and reported success. It now waits 30s and fails the unit if any restart
+count moved.
+
 ## cloudflared is not on watchtower
 
 Watchtower runs in label-enable mode — only containers carrying

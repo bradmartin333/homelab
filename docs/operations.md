@@ -196,7 +196,7 @@ death reports as all-green.
 | Immich DB growing steadily                 | CLIP embeddings scale with photo count | Expected; it's the only part of the backup with real growth in it       |
 | Machine stays off after an outage          | BIOS AC-restore lost (dead CMOS battery) | Reset it in BIOS on the next visit                                    |
 | Containers exited after an auto-reboot     | Bound to the tailnet IP before tailscaled had assigned it | `journalctl -u homelab-boot-reconcile -b` |
-| Vikunja 404s, logs show `lookup postgres ... server misbehaving` | Docker embedded-DNS (127.0.0.11) transient SERVFAIL | Usually self-clears via `restart: unless-stopped`; `redeploy.sh` also fixes it |
+| Vikunja 404s, logs show `lookup postgres ... server misbehaving` | Docker embedded-DNS (127.0.0.11) transient SERVFAIL; or, if it keeps looping after a reboot, the container lost `db_internal` | Usually self-clears via `restart: unless-stopped`. If not, check `docker inspect -f '{{json .NetworkSettings.Networks}}' vikunja` — missing `db_internal` needs `docker compose up -d --force-recreate vikunja`, not a restart |
 | Backup service "never ran" but timer fired | `RemainAfterExit=yes` on the oneshot | Must stay absent — see [`../systemd/`](../systemd/homelab-backup.service) |
 | Pi leg missing from `healthcheck.sh`       | `/root/.restic-pi.env` not present yet | Expected until [pi-backup.md](pi-backup.md) setup is finished |
 | Pi backup green in `healthcheck.sh` but Immich restore comes up short | Snapshot is fresh but scoped wrong (bad path/exclude) | `sudo scripts/pi-verify.sh` — checks file count/size, not just reachability |
