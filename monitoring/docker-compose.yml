@@ -17,8 +17,10 @@ services:
       - monitoring_internal
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
+    # Grafana is intentionally NOT routed through Traefik — this tailnet
+    # binding is the only way to reach it.
     ports:
-      - "${TAILSCALE_IP:?set TAILSCALE_IP in monitoring/.env}:3000:3000"
+      - "${TAILSCALE_IP:?set TAILSCALE_IP in the root .env}:3000:3000"
 
   prometheus:
     image: prom/prometheus:latest
@@ -34,7 +36,7 @@ services:
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
     ports:
-      - "${TAILSCALE_IP:?set TAILSCALE_IP in monitoring/.env}:9090:9090"
+      - "${TAILSCALE_IP:?set TAILSCALE_IP in the root .env}:9090:9090"
 
   node-exporter:
     image: prom/node-exporter:latest

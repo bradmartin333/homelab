@@ -34,7 +34,7 @@ services:
       - "traefik.http.services.immich.loadbalancer.server.port=2283"
       - "com.centurylinklabs.watchtower.enable=true"
     ports:
-      - "${TAILSCALE_IP:?set TAILSCALE_IP in immich/.env}:2283:2283"
+      - "${TAILSCALE_IP:?set TAILSCALE_IP in the root .env}:2283:2283"
 
   immich-machine-learning:
     image: ghcr.io/immich-app/immich-machine-learning:v3
