@@ -206,6 +206,12 @@ death reports as all-green.
 1. Create `<appname>/docker-compose.yml` and `<appname>/.env`, following an
    existing app as the template. No `ports:` mapping on a public app —
    traefik labels only, and it joins the `proxy` network.
+   Also create `<appname>/.env.example` listing every key in `.env`, with an
+   empty or placeholder value and a comment saying what reads it and how to
+   generate it. `.env.enc` shows the key names but not what they're for, so
+   this file is where each key is explained. Settings that belong in the
+   root `.env` go in the root `.env.example` instead; see
+   [Which `.env` a variable goes in](architecture-notes.md#which-env-a-variable-goes-in).
 2. Add `- <appname>/docker-compose.yml` to the `include:` list in the root
    `docker-compose.yml`.
 3. **Add its container name to `CONTAINERS` in `scripts/healthcheck.sh`.**
