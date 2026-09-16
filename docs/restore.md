@@ -195,7 +195,7 @@ Order matters:
    from its `.env.enc` — but **not** the root `/opt/homelab/.env`, which
    `homelab-secrets.sh` deliberately doesn't touch (glob is `*/.env`, one
    level deep only). The root `.env` interpolates `${TRAEFIK_BIND_IP}`,
-   `${ACME_EMAIL}`, `${IMMICH_DOMAIN}`, `${VIKUNJA_DOMAIN}`,
+   `${TAILSCALE_IP}`, `${ACME_EMAIL}`, `${IMMICH_DOMAIN}`, `${VIKUNJA_DOMAIN}`,
    `${TALKOMATIC_DOMAIN}`, `${MEALS_DOMAIN}`, `${TALKOMATIC_BRANCH}`,
    `${MEALS_BRANCH}` directly into the compose files — none of it is
    secret (a domain name is public in DNS regardless), so it's a plain
@@ -223,8 +223,8 @@ Order matters:
    **The `proxy` subnet is not optional** — see `create-networks.sh` for why.
 9. Install the ssh hardening, unattended-upgrades, and systemd backup timer
    configs — see the READMEs in `ssh/`, `apt/`, and `systemd/`.
-10. **Rejoin Tailscale** — needed for remote access, and `immich/docker-compose.yml`
-    binds to `$TAILSCALE_IP`:
+10. **Rejoin Tailscale** — needed for remote access, and vikunja,
+    immich-server, grafana and prometheus bind their ports to `$TAILSCALE_IP`:
     ```bash
     curl -fsSL https://tailscale.com/install.sh | sh
     sudo tailscale up
@@ -241,8 +241,9 @@ Order matters:
     ```bash
     sudo ufw allow in on tailscale0 to any port 22 proto tcp
     ```
-    Update `TAILSCALE_IP` in `immich/.env` to the new address, then
-    `./homelab-secrets.sh commit`.
+    Set `TAILSCALE_IP` in the root `/opt/homelab/.env` to the address
+    `tailscale ip -4` printed. The root `.env` isn't in git, so there is
+    nothing to commit.
 11. **Create a new Cloudflare Tunnel** — tunnel credentials are deliberately
     not in any backup, so this is always a fresh tunnel on a rebuild, not a
     restore:

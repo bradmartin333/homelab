@@ -49,8 +49,10 @@ scrape_configs:
 
   - job_name: watchtower
     metrics_path: /v1/metrics
+    # Written from watchtower/.env at container start; see the prometheus
+    # service in monitoring/docker-compose.yml.
     authorization:
-      credentials: b54c8dd5dbbfd4cdcaa58e3f8a6a0aea
+      credentials_file: /tmp/watchtower-api-token
     static_configs:
       - targets: ["watchtower:8080"]
 
@@ -76,8 +78,10 @@ scrape_configs:
 
   - job_name: meals
     metrics_path: /metrics
+    # Written from meals/.env at container start; see the prometheus service
+    # in monitoring/docker-compose.yml.
     authorization:
-      credentials: d9368934b5c3e2e5f6cee013868be97037c06189f7a761ac32f5290f9d0b247f
+      credentials_file: /tmp/meals-metrics-token
     static_configs:
       - targets: ["meals:8000"]
     # Only recipe count, memory, and CPU matter here — everything else the

@@ -14,10 +14,19 @@
 # restore is logged once and left stopped, with no retry. Nothing on the box
 # heals it, and the reboot is unattended by definition.
 #
-# So: wait for the address, then `up -d`. Deliberately not redeploy.sh — no
-# pull, no rebuild, no prune belongs in the boot path. Run from
-# homelab-boot-reconcile.service; safe to run by hand any time, it is a no-op
-# when everything is already up.
+# Starting them again is not enough either. A container that fails to start
+# during restore can come back missing networks: after the 2026-09-15 reboot
+# all four had lost their internal network (vikunja lost db_internal, grafana
+# was left with none). Their compose config hadn't changed, so a plain `up -d`
+# restarted the same broken containers, and vikunja crash-looped on
+# `lookup postgres` while this script reported success.
+#
+# So: wait for the address, recreate whatever isn't running from the compose
+# file, `up -d` everything else, and give the result time to crash before
+# calling it healthy. Deliberately not redeploy.sh — no pull, no rebuild, no
+# prune belongs in the boot path. Run from homelab-boot-reconcile.service;
+# safe to run by hand any time, it changes nothing when everything is already
+# up.
 #
 # Override the repo location with HOMELAB_DIR (default: /opt/homelab).
 
@@ -50,24 +59,66 @@ else
   echo "warning: no tailnet address after ${TAILSCALE_WAIT_SECS}s — continuing anyway" >&2
 fi
 
-echo "==> starting anything that is not running"
-docker compose up -d
+# Every `up` below passes --no-build. talkomatic and meals set
+# `pull_policy: build`, which makes a plain `up` rebuild them from upstream
+# main. On 2026-09-15 that replaced the talkomatic server mid-boot, and
+# talkomatic-bot was left holding a token the new server had never issued.
+
+# `--status running` excludes `restarting`, so a container caught in a crash
+# loop when this is run by hand gets recreated too.
+mapfile -t not_running < <(comm -23 \
+  <(docker compose config --services | sort) \
+  <(docker compose ps --services --status running | sort))
+
+if [ "${#not_running[@]}" -gt 0 ]; then
+  echo "==> recreating what is not running: ${not_running[*]}"
+  # Forces only the named services. Compose recreates their dependencies only
+  # if those have diverged from the config, so postgres keeps running under a
+  # recreated vikunja.
+  docker compose up -d --no-build --force-recreate "${not_running[@]}"
+fi
+
+echo "==> starting anything else"
+docker compose up -d --no-build
+
+# A crash-looping container is `running` for the moment after each restart;
+# the 2026-09-15 run checked once, a second after `up`, and passed with vikunja
+# looping. So record restart counts, wait, and require that none moved.
+SETTLE_SECS=30
 
 # Derived from the compose config rather than copied from healthcheck.sh's
 # CONTAINERS, so adding an app can't leave this check silently blind to it.
 # Same extraction redeploy.sh uses to spot strays.
-echo "==> verifying every container is running"
-down=()
-while read -r name; do
-  [ -n "$name" ] || continue
-  if [ -z "$(docker ps -q -f "name=^${name}$")" ]; then
-    down+=("$name")
-  fi
-done < <(docker compose config | sed -n 's/^[[:space:]]*container_name: *//p')
+mapfile -t containers < <(docker compose config | sed -n 's/^[[:space:]]*container_name: *//p')
 
-if [ "${#down[@]}" -gt 0 ]; then
-  echo "error: still not running after reconcile: ${down[*]}" >&2
-  echo "  check: docker compose logs --tail 50 ${down[*]}" >&2
+declare -A restarts_before=()
+for name in "${containers[@]}"; do
+  restarts_before[$name]="$(docker inspect -f '{{.RestartCount}}' "$name" 2>/dev/null || echo missing)"
+done
+
+echo "==> waiting ${SETTLE_SECS}s, then verifying every container stayed up"
+sleep "$SETTLE_SECS"
+
+bad=()
+for name in "${containers[@]}"; do
+  if ! state="$(docker inspect -f '{{.State.Status}} {{.RestartCount}} {{if .State.Health}}{{.State.Health.Status}}{{end}}' "$name" 2>/dev/null)"; then
+    bad+=("$name: missing")
+    continue
+  fi
+  read -r status count health <<<"$state"
+  if [ "$status" != running ]; then
+    bad+=("$name: $status")
+  elif [ "$count" != "${restarts_before[$name]}" ]; then
+    bad+=("$name: restarted during the check (restart count ${restarts_before[$name]} -> $count)")
+  elif [ "$health" = unhealthy ]; then
+    bad+=("$name: unhealthy")
+  fi
+done
+
+if [ "${#bad[@]}" -gt 0 ]; then
+  echo "error: not healthy after reconcile:" >&2
+  printf '  %s\n' "${bad[@]}" >&2
+  echo "  check: docker logs --tail 50 <name>" >&2
   # Fail the unit so this shows up in `systemctl --failed` and the journal
   # instead of a boot that looks clean while a service is missing.
   exit 1

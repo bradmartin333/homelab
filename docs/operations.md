@@ -196,7 +196,7 @@ death reports as all-green.
 | Immich DB growing steadily                 | CLIP embeddings scale with photo count | Expected; it's the only part of the backup with real growth in it       |
 | Machine stays off after an outage          | BIOS AC-restore lost (dead CMOS battery) | Reset it in BIOS on the next visit                                    |
 | Containers exited after an auto-reboot     | Bound to the tailnet IP before tailscaled had assigned it | `journalctl -u homelab-boot-reconcile -b` |
-| Vikunja 404s, logs show `lookup postgres ... server misbehaving` | Docker embedded-DNS (127.0.0.11) transient SERVFAIL | Usually self-clears via `restart: unless-stopped`; `redeploy.sh` also fixes it |
+| Vikunja 404s, logs show `lookup postgres ... server misbehaving` | Docker embedded-DNS (127.0.0.11) transient SERVFAIL; or, if it keeps looping after a reboot, the container lost `db_internal` | Usually self-clears via `restart: unless-stopped`. If not, check `docker inspect -f '{{json .NetworkSettings.Networks}}' vikunja` — missing `db_internal` needs `docker compose up -d --force-recreate vikunja`, not a restart |
 | Backup service "never ran" but timer fired | `RemainAfterExit=yes` on the oneshot | Must stay absent — see [`../systemd/`](../systemd/homelab-backup.service) |
 | Pi leg missing from `healthcheck.sh`       | `/root/.restic-pi.env` not present yet | Expected until [pi-backup.md](pi-backup.md) setup is finished |
 | Pi backup green in `healthcheck.sh` but Immich restore comes up short | Snapshot is fresh but scoped wrong (bad path/exclude) | `sudo scripts/pi-verify.sh` — checks file count/size, not just reachability |
@@ -206,6 +206,12 @@ death reports as all-green.
 1. Create `<appname>/docker-compose.yml` and `<appname>/.env`, following an
    existing app as the template. No `ports:` mapping on a public app —
    traefik labels only, and it joins the `proxy` network.
+   Also create `<appname>/.env.example` listing every key in `.env`, with an
+   empty or placeholder value and a comment saying what reads it and how to
+   generate it. `.env.enc` shows the key names but not what they're for, so
+   this file is where each key is explained. Settings that belong in the
+   root `.env` go in the root `.env.example` instead; see
+   [Which `.env` a variable goes in](architecture-notes.md#which-env-a-variable-goes-in).
 2. Add `- <appname>/docker-compose.yml` to the `include:` list in the root
    `docker-compose.yml`.
 3. **Add its container name to `CONTAINERS` in `scripts/healthcheck.sh`.**
@@ -216,7 +222,9 @@ death reports as all-green.
    covered — it's backed up wholesale precisely so a new app is protected by
    default rather than silently missing until the day it matters.
 5. Add a scrape target in `monitoring/prometheus/prometheus.yml` if it exposes
-   metrics.
+   metrics. If the endpoint needs a token, keep the token in `<appname>/.env`
+   and pass it to prometheus the way the meals and watchtower jobs do (see the
+   prometheus service in `monitoring/docker-compose.yml`), never as a literal.
 6. Encrypt and commit: `./homelab-secrets.sh commit "add <appname>"`.
 7. `scripts/redeploy.sh`, then check `docker logs traefik` for the certificate.
 

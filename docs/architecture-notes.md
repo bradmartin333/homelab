@@ -52,12 +52,17 @@ also exported in shell     → shell value
 
 So each variable gets exactly one home:
 
-- **Root `.env`** — non-secret settings read at build or routing time:
-  domains, `TRAEFIK_BIND_IP`, `ACME_EMAIL`, and the `*_BRANCH` build refs. A
-  plain file copied from `.env.example`, not in git.
+- **Root `.env`** — non-secret settings read at build or routing time, and
+  anything several apps share: domains, the `TRAEFIK_BIND_IP` and
+  `TAILSCALE_IP` bind addresses, `ACME_EMAIL`, and the `*_BRANCH` build refs.
+  A plain file copied from `.env.example`, not in git.
 - **`<app>/.env`** — secrets and settings only that app uses
   (`VIKUNJA_DB_PASSWORD`, `MEALS_DB_PASSWORD`, `UPLOAD_LOCATION`).
-  sops-encrypted to `.env.enc` and committed.
+  sops-encrypted to `.env.enc` and committed. This holds even for a
+  low-stakes secret, like a metrics scrape token on an internal network.
+  Never write one as a literal in a compose file or `prometheus.yml`: those
+  are plaintext in git, and a leaked value stays in the history after it's
+  removed.
 
 `TALKOMATIC_BRANCH` once ended up in `talkomatic/.env` instead of the root. It
 worked only because the root `.env` didn't set it — rebuilding the root from
@@ -71,25 +76,30 @@ docker compose -f /opt/homelab/docker-compose.yml config | grep 'context:.*#'
 
 ## Tailscale IP is a variable, not a literal
 
-`immich/docker-compose.yml` binds port 2283 to `${TAILSCALE_IP}` rather than a
-hardcoded address — a re-auth that changes the tailnet IP used to fail the
-container outright with `cannot assign requested address`.
+Four services bind a host port to `${TAILSCALE_IP}` rather than a hardcoded
+address: vikunja (3456), immich-server (2283), grafana (3000) and prometheus
+(9090). A re-auth that changes the tailnet IP used to fail them outright
+with `cannot assign requested address`.
 
-Set in `immich/.env` (same file as `UPLOAD_LOCATION`):
+It is set once, in the root `.env`, so a re-IP is one edit. The root `.env`
+isn't in git, so there is nothing to commit:
 
 ```bash
-docker exec immich-server tailscale ip -4 2>/dev/null || tailscale ip -4
-$EDITOR /opt/homelab/immich/.env      # TAILSCALE_IP=<the ip above>
-/opt/homelab/homelab-secrets.sh commit "update tailscale bind ip"
+tailscale ip -4
+$EDITOR /opt/homelab/.env      # TAILSCALE_IP=<the ip above>
+docker compose -f /opt/homelab/docker-compose.yml up -d
 ```
 
-The compose file uses `${TAILSCALE_IP:?...}` rather than a bare `${TAILSCALE_IP}`
-so an unset variable is a hard error at `up` time instead of silently
-interpolating to empty and binding `:2283:2283` on every interface — exposing
-Immich on the LAN. Verify after any change anyway:
+Each compose file uses `${TAILSCALE_IP:?...}` rather than a bare
+`${TAILSCALE_IP}`, so an unset variable is a hard error at `up` time instead
+of silently interpolating to empty and binding the port on every interface —
+exposing the service on the LAN. Verify after any change anyway:
 
 ```bash
-docker port immich-server 2283     # expect <ip>:2283, not 0.0.0.0:2283
+docker port vikunja 3456           # expect <ip>:3456, not 0.0.0.0:3456
+docker port immich-server 2283
+docker port grafana 3000
+docker port prometheus 9090
 ```
 
 `cannot assign requested address` has a second, unrelated cause: at boot,
@@ -102,6 +112,14 @@ that failed to *start* during daemon restore. `homelab-boot-reconcile.service`
 now waits for the address and brings them up; if this symptom appears after a
 reboot, read `journalctl -u homelab-boot-reconcile -b` before touching any
 `.env`.
+
+It recreates them rather than restarting them. After the 2026-09-15 reboot,
+all four failed containers had lost their internal network (vikunja lost
+`db_internal`, grafana had no network left at all). Restarting reuses those
+same containers, so vikunja crash-looped on `lookup postgres` and
+immich-server looped too. The reconcile then checked once, a second later,
+and reported success. It now waits 30s and fails the unit if any restart
+count moved.
 
 ## cloudflared is not on watchtower
 
