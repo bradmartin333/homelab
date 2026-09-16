@@ -282,5 +282,6 @@ there and no one can read it. Password manager, or paper in another building.
 | Next scheduled backup     | `systemctl list-timers \| grep homelab`                                   |
 | Whole stack up / status   | `cd /opt/homelab && docker compose up -d` / `docker compose ps`          |
 | Rebuild + restart changed | `/opt/homelab/scripts/redeploy.sh`                                       |
+| …chat only / all but chat | `redeploy.sh --chat-only` / `redeploy.sh --no-chat`                      |
 | Local snapshots           | `sudo restic -r /srv/docker-data/restic-repo --password-file /root/.restic-password snapshots` |
 | Commit config             | `./homelab-secrets.sh commit "message"`                            |
