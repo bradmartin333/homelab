@@ -102,7 +102,9 @@ if ! $CHAT_ONLY; then
     if $NO_CHAT && printf '%s\n' "${CHAT_SERVICES[@]}" | grep -qx "$name"; then
       continue
     fi
-    cid="$(docker ps -aq -f "name=^${name}$")"
+    # --no-trunc: `docker compose ps -q` prints full IDs, and a short one
+    # never matches them, so every container looked stray.
+    cid="$(docker ps -aq --no-trunc -f "name=^${name}$")"
     if [ -n "$cid" ] && ! grep -qx "$cid" <<<"$IN_PROJECT"; then
       echo "  removing stray container: $name ($cid)"
       docker rm -f "$cid"
