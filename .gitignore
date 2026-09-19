@@ -2,7 +2,6 @@
 *.tmp
 *.key
 *.pem
-.wrangler/
 **/.DS_Store
 node_modules/
 talkomatic-bot/bots/active/*
