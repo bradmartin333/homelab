@@ -14,6 +14,13 @@ VIKUNJA_CONTAINER="${VIKUNJA_CONTAINER:-vikunja}"
 VIKUNJA_BINARY="/app/vikunja/vikunja"
 TEST_EMAIL="${1:-}"
 
+# UI Colors
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+BOLD='\033[1m'
+NC='\033[0m'
+
 if [ -z "$TEST_EMAIL" ]; then
     echo "Usage: $0 <email-address>"
     exit 1
