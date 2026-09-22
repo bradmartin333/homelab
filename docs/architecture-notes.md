@@ -64,11 +64,12 @@ So each variable gets exactly one home:
   are plaintext in git, and a leaked value stays in the history after it's
   removed.
 
-`TALKOMATIC_BRANCH` once ended up in `talkomatic/.env` instead of the root. It
-worked only because the root `.env` didn't set it — rebuilding the root from
-`.env.example` would have made the talkomatic copy a silent no-op — and it
-leaked into the talkomatic container's environment. To see what compose
-actually resolved rather than trusting either file:
+A `*_BRANCH` variable once ended up in an app's own `.env` instead of the
+root. It worked only because the root `.env` didn't set it — rebuilding the
+root from `.env.example` would have made the app-level copy a silent no-op —
+and it leaked into that container's environment. `MEALS_BRANCH` is the one
+left that can go wrong this way. To see what compose actually resolved rather
+than trusting either file:
 
 ```bash
 docker compose -f /opt/homelab/docker-compose.yml config | grep 'context:.*#'
