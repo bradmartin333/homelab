@@ -60,4 +60,4 @@ for unit in "${timers[@]}"; do
 done
 
 echo "installed:"
-systemctl list-timers | grep -F "$(for t in "${timers[@]}"; do basename "$t"; done | paste -sd'|')" || true
+systemctl list-timers | grep -E "$(for t in "${timers[@]}"; do basename "$t"; done | paste -sd'|')" || true

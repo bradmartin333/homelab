@@ -1,0 +1,22 @@
+// Drop-in overriding the reboot policy that `dpkg-reconfigure unattended-upgrades`
+// writes into /etc/apt/apt.conf.d/50unattended-upgrades.
+//
+// A separate file on purpose. apt reads every file in apt.conf.d in name order and
+// later assignments win, so 52 overrides 50 without touching it. Writing these three
+// directives by overwriting 50unattended-upgrades would delete that file's
+// Unattended-Upgrade::Allowed-Origins block, and with no allowed origins the daily
+// run installs nothing at all — silently, while still logging and still rebooting.
+//
+// Kernel and library security patches need a reboot to take effect, and nobody is
+// physically at the machine to do it.
+
+Unattended-Upgrade::Automatic-Reboot "true";
+
+// Reboot even with users logged in. The alternative is a patched kernel that never
+// loads because someone left an ssh session open in October.
+Unattended-Upgrade::Automatic-Reboot-WithUsers "true";
+
+// Clear of every other scheduled job — see homelab-backup.timer (nightly ~03:00,
+// ±5m jitter) and the stock apt-daily-upgrade.timer/fstrim.timer windows. A reboot
+// landing mid-backup kills it partway through and leaves a restic lock behind.
+Unattended-Upgrade::Automatic-Reboot-Time "04:30";
