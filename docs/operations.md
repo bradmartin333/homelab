@@ -33,8 +33,9 @@ important alert in the build: it is the difference between finding out
 tonight and finding out in June.
 
 **Uptime monitoring.** A free [UptimeRobot](https://uptimerobot.com) monitor
-on each public hostname (`$VIKUNJA_DOMAIN`, `$IMMICH_DOMAIN`) so you hear
-about an outage by email rather than from whoever was using it.
+on each public hostname (`$VIKUNJA_DOMAIN`, `$IMMICH_DOMAIN`,
+`$MEALS_DOMAIN`) so you hear about an outage by email rather than from
+whoever was using it.
 
 **Grafana** (Tailscale-only, `monitoring/`) is the "what is it doing right
 now" view — dashboards for traefik, postgres, immich, cadvisor, node-exporter,
