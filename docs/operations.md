@@ -34,7 +34,7 @@ tonight and finding out in June.
 
 **Uptime monitoring.** A free [UptimeRobot](https://uptimerobot.com) monitor
 on each public hostname (`$VIKUNJA_DOMAIN`, `$IMMICH_DOMAIN`,
-`$TALKOMATIC_DOMAIN`) so you hear about an outage by email rather than from
+`$MEALS_DOMAIN`) so you hear about an outage by email rather than from
 whoever was using it.
 
 **Grafana** (Tailscale-only, `monitoring/`) is the "what is it doing right
@@ -282,6 +282,5 @@ there and no one can read it. Password manager, or paper in another building.
 | Next scheduled backup     | `systemctl list-timers \| grep homelab`                                   |
 | Whole stack up / status   | `cd /opt/homelab && docker compose up -d` / `docker compose ps`          |
 | Rebuild + restart changed | `/opt/homelab/scripts/redeploy.sh`                                       |
-| …chat only / all but chat | `redeploy.sh --chat-only` / `redeploy.sh --no-chat`                      |
 | Local snapshots           | `sudo restic -r /srv/docker-data/restic-repo --password-file /root/.restic-password snapshots` |
 | Commit config             | `./homelab-secrets.sh commit "message"`                            |

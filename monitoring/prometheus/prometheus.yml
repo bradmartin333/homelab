@@ -72,10 +72,6 @@ scrape_configs:
     static_configs:
       - targets: ["immich-postgres-exporter:9187"]
 
-  - job_name: talkomatic-bot
-    static_configs:
-      - targets: ["talkomatic-bot:8080"]
-
   - job_name: meals
     metrics_path: /metrics
     # Written from meals/.env at container start; see the prometheus service

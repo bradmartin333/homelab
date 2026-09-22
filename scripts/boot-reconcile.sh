@@ -59,10 +59,11 @@ else
   echo "warning: no tailnet address after ${TAILSCALE_WAIT_SECS}s — continuing anyway" >&2
 fi
 
-# Every `up` below passes --no-build. talkomatic and meals set
-# `pull_policy: build`, which makes a plain `up` rebuild them from upstream
-# main. On 2026-09-15 that replaced the talkomatic server mid-boot, and
-# talkomatic-bot was left holding a token the new server had never issued.
+# Every `up` below passes --no-build. meals sets `pull_policy: build`, which
+# makes a plain `up` rebuild it from upstream main — so a boot would silently
+# swap in whatever someone else pushed, mid-reconcile. Booting is for getting
+# back to the last known-good state; picking up new upstream code is
+# redeploy.sh's job, run deliberately.
 
 # `--status running` excludes `restarting`, so a container caught in a crash
 # loop when this is run by hand gets recreated too.
