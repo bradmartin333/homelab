@@ -229,7 +229,9 @@ restic -r "$RESTIC_B2_REPO" --password-file "$PASSFILE" copy --tag nightly \
 restic -r "$RESTIC_B2_REPO" --password-file "$PASSFILE" forget --tag nightly "${B2_KEEP[@]}"
 if [ "$(date +%d)" = "$B2_PRUNE_DOM" ]; then
   restic -r "$RESTIC_B2_REPO" --password-file "$PASSFILE" prune
-  restic -r "$RESTIC_B2_REPO" --password-file "$PASSFILE" check
+  # --with-cache: check otherwise ignores the cache and re-downloads every
+  # index and tree pack, which is B2 egress against the 1 GB/day free cap.
+  restic -r "$RESTIC_B2_REPO" --password-file "$PASSFILE" check --with-cache
 fi
 
 # Fourth target: the Pi, over Tailscale — see docs/pi-backup.md. This is a
