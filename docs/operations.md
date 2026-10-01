@@ -144,7 +144,9 @@ death reports as all-green.
 4. **Drive health in detail**: `sudo smartctl -a /dev/<device>` per drive —
    the weekly script only watches overall SMART status. Watch reallocated
    sectors and power-on hours; 24/7 drives are consumables, and `sdb` is
-   unmirrored (see [future-drive-mirror.md](future-drive-mirror.md)).
+   unmirrored — if it fails, replace it and restore `/srv/docker-data` from
+   the `md0` copy or B2 (see
+   [storage-and-backup.md](storage-and-backup.md#the-tradeoff-in-putting-the-repo-on-sdb)).
 5. Confirm the BIOS **Restore on AC Power Loss** setting survived — it is
    lost when a CMOS battery dies, and without it one outage leaves the box
    off until someone visits.
