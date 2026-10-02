@@ -1,0 +1,32 @@
+services:
+  werk:
+    build:
+      context: https://github.com/bradmartin333/werkwerkwerk.git#${WERK_BRANCH:-main}
+    image: werk:local
+    pull_policy: build
+    container_name: werk
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    environment:
+      # "Today" for daily entries rolls over at local midnight in this zone.
+      TZ: "America/New_York"
+    # SQLite lives here; /srv/docker-data is covered by backup.sh wholesale.
+    # Runs as distroless nonroot: sudo chown 65532:65532 /srv/docker-data/werk
+    volumes:
+      - /srv/docker-data/werk:/data
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.werk.rule=Host(`${WERK_DOMAIN}`)"
+      - "traefik.http.routers.werk.entrypoints=websecure"
+      - "traefik.http.routers.werk.tls=true"
+      - "traefik.http.routers.werk.tls.certresolver=cloudflare"
+      - "traefik.http.routers.werk.middlewares=rate-limit@file"
+      - "traefik.http.services.werk.loadbalancer.server.port=8080"
+      - "com.centurylinklabs.watchtower.enable=false"
+
+networks:
+  proxy:
+    external: true

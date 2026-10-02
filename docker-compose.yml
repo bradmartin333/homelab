@@ -3,6 +3,7 @@ include:
   - postgres/docker-compose.yml
   - vikunja/docker-compose.yml
   - meals/docker-compose.yml
+  - werk/docker-compose.yml
   - cloudflared/docker-compose.yml
   - immich/docker-compose.yml
   - watchtower/docker-compose.yml
