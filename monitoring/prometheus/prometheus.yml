@@ -90,3 +90,13 @@ scrape_configs:
       - source_labels: [__name__]
         regex: 'meals_recipes_total|process_resident_memory_bytes|process_cpu_seconds_total'
         action: keep
+
+  - job_name: talkomatic
+    metrics_path: /metrics
+    # Written from talkomatic/.env at container start, like meals above. The
+    # app's /metrics 404s without TALKOMATIC_METRICS_TOKEN set, and sits
+    # outside its login gate only for a caller holding that token.
+    authorization:
+      credentials_file: /tmp/talkomatic-metrics-token
+    static_configs:
+      - targets: ["talkomatic:3000"]

@@ -27,7 +27,7 @@ services:
     container_name: prometheus
     restart: unless-stopped
     security_opt: [no-new-privileges:true]
-    # The meals and watchtower scrape tokens. prometheus.yml can't expand
+    # The meals, watchtower and talkomatic scrape tokens. prometheus.yml can't expand
     # environment variables, so the shell below writes each token to a file
     # under /tmp (umask 077, so only the image's `nobody` user can read it),
     # then execs prometheus. Its jobs read them with credentials_file.
@@ -37,12 +37,14 @@ services:
     #
     # Chosen over bind-mounting token files from /srv/docker-data/monitoring/
     # so each token keeps one home, its app's .env. The trade-off, the same
-    # one postgres-exporter accepts below: everything else in those two files
-    # lands in prometheus's environment too. That includes MEALS_DB_PASSWORD
-    # and watchtower's notification URL, which holds the Gmail app password.
+    # one postgres-exporter accepts below: everything else in those files
+    # lands in prometheus's environment too. That includes MEALS_DB_PASSWORD,
+    # watchtower's notification URL (which holds the Gmail app password), and
+    # talkomatic's SESSION_SECRET.
     env_file:
       - ../meals/.env
       - ../watchtower/.env
+      - ../talkomatic/.env
     entrypoint:
       - /bin/sh
       - -c
@@ -50,6 +52,7 @@ services:
         umask 077 &&
         printf %s "$$METRICS_TOKEN" > /tmp/meals-metrics-token &&
         printf %s "$$WATCHTOWER_HTTP_API_TOKEN" > /tmp/watchtower-api-token &&
+        printf %s "$$TALKOMATIC_METRICS_TOKEN" > /tmp/talkomatic-metrics-token &&
         exec /bin/prometheus
         --config.file=/etc/prometheus/prometheus.yml
         --storage.tsdb.path=/prometheus
