@@ -125,10 +125,13 @@ count moved.
 ## cloudflared is not on watchtower
 
 Watchtower runs in label-enable mode — only containers carrying
-`com.centurylinklabs.watchtower.enable=true` are touched. `immich-server`/
-`immich-machine-learning` are pinned to a specific version (only move on a
-digest re-push) and `vikunja` tracks a minor tag, which is the actual point of
-running watchtower.
+`com.centurylinklabs.watchtower.enable=true` are touched. Every labelled
+container is on a tag that caps how far watchtower can move it:
+`immich-server`/`immich-machine-learning` track the `v3` major, `vikunja` and
+`grafana` track a minor, and the rest of the monitoring stack tracks a major or
+an exact version (see the comment on `grafana` in
+`monitoring/docker-compose.yml`). That cap is the actual point of running
+watchtower. Only `immich-postgres` is pinned by digest.
 
 `cloudflared:latest` was the exception: it could cross a major version
 unattended with no notification and no rollback. It has no watchtower label
