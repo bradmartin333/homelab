@@ -58,7 +58,8 @@ creds; recipient(s) are configured via `toAddresses` in
 | ------ | ------------------------------------------------------------------------ |
 | 03:00 | Backup: dump both clusters → local repo → array mirror → B2 → Pi (if configured, see [pi-backup.md](pi-backup.md)) → ping (`homelab-backup.timer`, ±5m jitter) |
 | 05:00 | Watchtower patch updates (`WATCHTOWER_SCHEDULE`)                         |
-| 06:00 | Reboot window, if patches require one (`apt/52homelab-reboot`)      |
+| 06:00 | Security patches install (stock `apt-daily-upgrade.timer`, +0–60m)  |
+| 07:30 | Reboot window, if patches require one (`apt/52homelab-reboot`)      |
 
 The ordering is deliberate and the three must not overlap — a reboot landing
 mid-backup kills it partway through. If you change any of these, change them

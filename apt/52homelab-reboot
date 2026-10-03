@@ -16,9 +16,11 @@ Unattended-Upgrade::Automatic-Reboot "true";
 // loads because someone left an ssh session open in October.
 Unattended-Upgrade::Automatic-Reboot-WithUsers "true";
 
-// Clear of every other scheduled job — see homelab-backup.timer (nightly ~03:00,
-// ±5m jitter), watchtower at 05:00, and the stock apt-daily-upgrade.timer/fstrim.timer
-// windows. A reboot landing mid-backup kills it partway through and leaves a restic
-// lock behind. Not 04:30: on the 1st the backup also prunes and checks B2 and
-// deep-verifies both local repos, and can run past it.
-Unattended-Upgrade::Automatic-Reboot-Time "06:00";
+// After the patches, not before them. unattended-upgrade runs from the stock
+// apt-daily-upgrade.timer (06:00 + up to 60m random delay) and schedules the reboot
+// for the next occurrence of this time, so anything earlier than 07:00 pushes every
+// patch reboot to the following morning, where it can land on that day's upgrade run.
+// 07:30 also clears homelab-backup.timer (nightly ~03:00, ±5m jitter; longest on the
+// 1st, when it prunes and checks B2 and deep-verifies both local repos) and watchtower
+// at 05:00. A reboot landing mid-backup kills it and leaves a restic lock behind.
+Unattended-Upgrade::Automatic-Reboot-Time "07:30";

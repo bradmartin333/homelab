@@ -206,14 +206,6 @@ restic -r "$ARRAY_REPO" --password-file "$PASSFILE" copy --tag nightly \
 restic -r "$ARRAY_REPO" --password-file "$PASSFILE" forget --tag nightly \
   "${LOCAL_KEEP[@]}" --prune
 
-# A plain `check` validates the index and metadata only and never reads a pack
-# file, so bit-rot on either disk is invisible to it. Both disks are local, so
-# reading a 5% sample once a month costs nothing but time.
-if [ "$(date +%d)" = "$B2_PRUNE_DOM" ]; then
-  restic -r "$LOCAL_REPO" --password-file "$PASSFILE" check --read-data-subset=5%
-  restic -r "$ARRAY_REPO" --password-file "$PASSFILE" check --read-data-subset=5%
-fi
-
 # Offsite copy. B2 credentials and RESTIC_B2_REPO live outside the git repo.
 set -a
 # shellcheck source=/dev/null
@@ -281,6 +273,16 @@ if [ -f "$PI_ENV" ]; then
   fi
 else
   echo "note: $PI_ENV not found — Pi backup target not yet configured, see docs/pi-backup.md" >&2
+fi
+
+# A plain `check` validates the index and metadata only and never reads a pack
+# file, so bit-rot on either disk is invisible to it. Both disks are local, so
+# reading a 5% sample once a month costs nothing but time. Last on purpose:
+# under set -e a failure here ends the run, and a bad disk shouldn't also cost
+# the night's B2 and Pi copies. It still fails the run and pings /fail.
+if [ "$(date +%d)" = "$B2_PRUNE_DOM" ]; then
+  restic -r "$LOCAL_REPO" --password-file "$PASSFILE" check --read-data-subset=5%
+  restic -r "$ARRAY_REPO" --password-file "$PASSFILE" check --read-data-subset=5%
 fi
 
 # Only reached if every step above succeeded.

@@ -17,11 +17,12 @@ no allowed origins `unattended-upgrades` installs nothing — while still runnin
 still logging, and still rebooting. Nothing errors; patches just stop. That is the failure
 this directory exists to prevent, so it is worth the extra file.
 
-`06:00` is deliberately clear of every other scheduled job — see `homelab-backup.timer`
-(nightly ~03:00), watchtower (05:00), and the stock Ubuntu
-`apt-daily-upgrade.timer`/`fstrim.timer` windows. A reboot landing mid-backup would kill it
-partway through. It was 04:30 until the 1st-of-the-month run (B2 prune and check, plus a
-5% read of both local repos) made that too tight.
+`07:30` comes after the patches it exists to apply. `unattended-upgrade` runs from the
+stock `apt-daily-upgrade.timer` (06:00 plus up to 60 minutes of random delay) and schedules
+the reboot for the *next* occurrence of this time — so any time before 07:00, including the
+old 04:30, delayed every patch reboot by a day. It also clears `homelab-backup.timer`
+(nightly ~03:00, longest on the 1st) and watchtower (05:00). A reboot landing mid-backup
+would kill it partway through.
 
 To apply:
 
