@@ -50,8 +50,12 @@ To recover them without sops:
 ```bash
 restic -r "$REPO" --password-file "$PASS" \
   restore latest --target /tmp/env-recover --include /opt/homelab
-ls /tmp/env-recover/opt/homelab/*/.env
+ls /tmp/env-recover/opt/homelab/.env /tmp/env-recover/opt/homelab/*/.env
 ```
+
+The first path is the root `.env` (domains, `TAILSCALE_IP`, `MEALS_BRANCH`).
+It has no secrets, so there's no `.env.enc` for it and the sops path can't
+bring it back. Without a snapshot, rebuild it from `.env.example`.
 
 > ⚠️ **Verify the age key round-trips before relying on the sops path.** The
 > recipient in `.sops.yaml` (and recorded inside every `.enc` file) must match
