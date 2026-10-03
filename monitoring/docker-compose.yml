@@ -63,8 +63,13 @@ services:
         --storage.tsdb.path=/prometheus
         --storage.tsdb.retention.time=30d
         --storage.tsdb.retention.size=5GB
+        --web.enable-lifecycle
     volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      # The directory, not the file. git replaces a changed file rather than
+      # rewriting it, and a single-file bind mount keeps pointing at the old
+      # one, so redeploy.sh's reload would load stale config. The image's
+      # /etc/prometheus holds only prometheus.yml, so this hides nothing.
+      - ./prometheus:/etc/prometheus:ro
       - /srv/docker-data/monitoring/prometheus:/prometheus
     networks:
       - proxy

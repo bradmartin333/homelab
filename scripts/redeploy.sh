@@ -74,11 +74,21 @@ docker compose up -d --remove-orphans "${UP_SERVICES[@]}"
 
 # `up -d` only recreates a container when its definition changes (image,
 # env, mounts, ...) — it can't see that prometheus.yml's *contents*
-# changed on disk, since the bind mount itself is unchanged. Prometheus
-# only reads that file at startup, so force a restart every run to pick
-# up scrape-config edits.
-echo "==> restarting prometheus to pick up prometheus.yml changes"
-docker compose restart prometheus
+# changed on disk, since the bind mount itself is unchanged. Reload it
+# every run to pick up scrape-config edits. A reload (--web.enable-lifecycle)
+# keeps the TSDB open, where a restart left a gap in every series. Retried
+# because `up -d` may have just recreated prometheus and it isn't listening
+# yet. A bad prometheus.yml fails the reload and keeps the old config
+# running, so warn rather than abort the rest of the redeploy.
+echo "==> reloading prometheus to pick up prometheus.yml changes"
+reloaded=false
+for _ in 1 2 3 4 5 6; do
+  if docker compose exec -T prometheus wget -qO- --post-data='' http://localhost:9090/-/reload; then
+    reloaded=true; break
+  fi
+  sleep 5
+done
+$reloaded || echo "warning: prometheus reload failed — check: docker logs prometheus" >&2
 
 if $MEALS_OK; then
   echo "==> forcing meals to pick up the new build"
