@@ -17,6 +17,8 @@ Unattended-Upgrade::Automatic-Reboot "true";
 Unattended-Upgrade::Automatic-Reboot-WithUsers "true";
 
 // Clear of every other scheduled job — see homelab-backup.timer (nightly ~03:00,
-// ±5m jitter) and the stock apt-daily-upgrade.timer/fstrim.timer windows. A reboot
-// landing mid-backup kills it partway through and leaves a restic lock behind.
-Unattended-Upgrade::Automatic-Reboot-Time "04:30";
+// ±5m jitter), watchtower at 05:00, and the stock apt-daily-upgrade.timer/fstrim.timer
+// windows. A reboot landing mid-backup kills it partway through and leaves a restic
+// lock behind. Not 04:30: on the 1st the backup also prunes and checks B2 and
+// deep-verifies both local repos, and can run past it.
+Unattended-Upgrade::Automatic-Reboot-Time "06:00";
