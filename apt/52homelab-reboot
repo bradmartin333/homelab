@@ -16,11 +16,12 @@ Unattended-Upgrade::Automatic-Reboot "true";
 // loads because someone left an ssh session open in October.
 Unattended-Upgrade::Automatic-Reboot-WithUsers "true";
 
-// After the patches, not before them. unattended-upgrade runs from the stock
-// apt-daily-upgrade.timer (06:00 + up to 60m random delay) and schedules the reboot
-// for the next occurrence of this time, so anything earlier than 07:00 pushes every
-// patch reboot to the following morning, where it can land on that day's upgrade run.
-// 07:30 also clears homelab-backup.timer (nightly ~03:00, ±5m jitter; longest on the
-// 1st, when it prunes and checks B2 and deep-verifies both local repos) and watchtower
-// at 05:00. A reboot landing mid-backup kills it and leaves a restic lock behind.
-Unattended-Upgrade::Automatic-Reboot-Time "07:30";
+// The quietest slot that collides with nothing. unattended-upgrade runs from the stock
+// apt-daily-upgrade.timer (06:00 + up to 60m random delay) and schedules the reboot for
+// the next occurrence of this time, so a patch that lands at 06:20 reboots at 02:00 the
+// following night — about 20h later, which is fine here and keeps reboots out of the
+// day. It also clears fstrim.timer (Mondays 00:00 + up to ~100m), lands hours away
+// from the next upgrade run, and is back up well before homelab-backup.timer (nightly
+// ~03:00, ±5m jitter). A reboot landing mid-backup kills it and leaves a restic lock.
+// Avoid 06:00–07:00 (mid-upgrade) and daytime (people are using the apps).
+Unattended-Upgrade::Automatic-Reboot-Time "02:00";
