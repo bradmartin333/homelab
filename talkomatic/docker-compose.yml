@@ -1,0 +1,35 @@
+services:
+  talkomatic:
+    build:
+      context: https://github.com/bradmartin333/talkomatic-classic.git#${TALKOMATIC_BRANCH:-main}
+    image: talkomatic:local
+    pull_policy: build
+    container_name: talkomatic
+    restart: unless-stopped
+    env_file: .env
+    security_opt: [no-new-privileges:true]
+    environment:
+      ALLOWED_ORIGINS: "https://${TALKOMATIC_DOMAIN}"
+      TRUST_PROXY: "1"
+    # Rooms, sessions, and the login accounts (accounts.json) live here.
+    # The image runs as `node` (uid 1000): sudo chown 1000:1000 /srv/docker-data/talkomatic
+    volumes:
+      - /srv/docker-data/talkomatic:/app/data
+    networks:
+      - proxy
+    # No Cloudflare Access in front any more: the app's own login page is the
+    # gate. Accounts: docker exec talkomatic npm run ops -- adduser <name> <pw>
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.talkomatic.rule=Host(`${TALKOMATIC_DOMAIN}`)"
+      - "traefik.http.routers.talkomatic.entrypoints=websecure"
+      - "traefik.http.routers.talkomatic.tls=true"
+      - "traefik.http.routers.talkomatic.tls.certresolver=cloudflare"
+      - "traefik.http.routers.talkomatic.middlewares=rate-limit@file"
+      - "traefik.http.services.talkomatic.loadbalancer.server.port=3000"
+      - "com.centurylinklabs.watchtower.enable=false"
+
+networks:
+  proxy:
+    external: true
