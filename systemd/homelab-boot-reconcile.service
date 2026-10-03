@@ -1,7 +1,11 @@
 [Unit]
 Description=Start any homelab container that failed to come up at boot
 Wants=network-online.target
-After=network-online.target docker.service
+# tailscaled: ports bind to the tailnet address, so starting after it usually
+# makes boot-reconcile.sh's 60s wait for that address a no-op. Ordering only —
+# the wait stays as the real check, since tailscaled can be "started" before
+# it has an address.
+After=network-online.target docker.service tailscaled.service
 Requires=docker.service
 
 [Service]
