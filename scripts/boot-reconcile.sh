@@ -87,9 +87,9 @@ docker compose up -d --no-build
 # looping. So record restart counts, wait, and require that none moved.
 SETTLE_SECS=30
 
-# Derived from the compose config rather than copied from healthcheck.sh's
-# CONTAINERS, so adding an app can't leave this check silently blind to it.
-# Same extraction redeploy.sh uses to spot strays.
+# Derived from the compose config rather than a hand-kept list, so adding an
+# app can't leave this check silently blind to it. Same extraction
+# redeploy.sh and healthcheck.sh use.
 mapfile -t containers < <(docker compose config | sed -n 's/^[[:space:]]*container_name: *//p')
 
 declare -A restarts_before=()

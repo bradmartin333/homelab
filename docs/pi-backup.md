@@ -233,6 +233,6 @@ existing B2 drill with a Pi/Immich restore step.
   can't delete existing snapshots."
 - The Pi itself is now something that needs occasional `apt upgrade`
   attention, same as the tower — a second machine to keep patched, not a
-  fire-and-forget appliance. It isn't in `healthcheck.sh`'s `CONTAINERS` or
-  update-tracking (it runs no containers), so its own package updates are on
+  fire-and-forget appliance. `healthcheck.sh` doesn't check it and nothing tracks
+  its updates (it runs no containers), so its own package updates are on
   you to remember — there's no automated nudge for this today.

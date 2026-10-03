@@ -74,9 +74,8 @@ Tailscale updates.
 sudo /opt/homelab/scripts/healthcheck.sh
 ```
 
-All green means done. Add every new container to `CONTAINERS` in that script
-when you add an app — a service missing from the list is a service whose
-death reports as all-green.
+All green means done. Its container list comes from `docker compose config`,
+so a new app is checked as soon as it's in the root `include:` list.
 
 **Monthly — fifteen minutes**
 
@@ -210,19 +209,16 @@ death reports as all-green.
    [Which `.env` a variable goes in](architecture-notes.md#which-env-a-variable-goes-in).
 2. Add `- <appname>/docker-compose.yml` to the `include:` list in the root
    `docker-compose.yml`.
-3. **Add its container name to `CONTAINERS` in `scripts/healthcheck.sh`.**
-   This is the step everyone forgets — the app runs fine and the health check
-   stays green forever whether or not it is actually up.
-4. If it stores data outside `/srv/docker-data`, add that path to `SOURCES` in
+3. If it stores data outside `/srv/docker-data`, add that path to `SOURCES` in
    `scripts/backup.sh`. Anything *inside* `/srv/docker-data` is already
    covered — it's backed up wholesale precisely so a new app is protected by
    default rather than silently missing until the day it matters.
-5. Add a scrape target in `monitoring/prometheus/prometheus.yml` if it exposes
+4. Add a scrape target in `monitoring/prometheus/prometheus.yml` if it exposes
    metrics. If the endpoint needs a token, keep the token in `<appname>/.env`
    and pass it to prometheus the way the meals and watchtower jobs do (see the
    prometheus service in `monitoring/docker-compose.yml`), never as a literal.
-6. Encrypt and commit: `./homelab-secrets.sh commit "add <appname>"`.
-7. `scripts/redeploy.sh`, then check `docker logs traefik` for the certificate.
+5. Encrypt and commit: `./homelab-secrets.sh commit "add <appname>"`.
+6. `scripts/redeploy.sh`, then check `docker logs traefik` for the certificate.
 
 No DNS, router, or tunnel changes are needed — the wildcard CNAME and wildcard
 tunnel ingress hand every hostname to traefik automatically.

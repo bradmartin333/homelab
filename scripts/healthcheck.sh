@@ -17,7 +17,6 @@ else
   exit 1
 fi
 
-CONTAINERS="traefik postgres vikunja meals cloudflared watchtower immich-server immich-machine-learning immich-redis immich-postgres talkomatic grafana prometheus node-exporter cadvisor postgres-exporter immich-postgres-exporter"
 MOUNTS="/ /srv/docker-data /srv/media"
 # Subset of MOUNTS that must be a real mount, not a directory on the root
 # filesystem. If sdb or md0 fails to come up, the path still exists and both
@@ -70,7 +69,11 @@ check_repo() {
 }
 
 echo; echo "CONTAINERS"
-for c in $CONTAINERS; do
+# Derived from the compose config, as boot-reconcile.sh does, so a new app
+# can't be missing from a hand-kept list and die while this reports green.
+mapfile -t containers < <(cd "$REPO_DIR" && docker compose config | sed -n 's/^[[:space:]]*container_name: *//p')
+[ ${#containers[@]} -gt 0 ] || bad "no containers found — check: cd $REPO_DIR && docker compose config"
+for c in "${containers[@]}"; do
   state=$(docker inspect -f '{{.State.Status}}' "$c" 2>/dev/null || echo missing)
   [ "$state" = "running" ] && ok "$c" || bad "$c is $state"
 done
