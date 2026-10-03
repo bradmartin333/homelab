@@ -119,9 +119,24 @@ if [ ! -f "$STATUS_FILE" ]; then
   warn "homelab-backup.service has never run — check: systemctl list-timers | grep homelab-backup"
 else
   read -r status when < "$STATUS_FILE"
-  if [ "$status" = "ok" ]; then ok "last run clean — $when"
-  else                          bad "last run failed — $when — check: journalctl -u homelab-backup"
+  # backup.sh only writes this file when it runs, so a timer that stopped
+  # firing leaves an old "ok" here forever — the August 2026 failure. Age it.
+  run_age=$(( ( $(date +%s) - $(date -d "$when" +%s) ) / 86400 ))
+  if [ "$status" != "ok" ]; then
+    bad "last run failed — $when — check: journalctl -u homelab-backup"
+  elif [ "$run_age" -gt "$MAX_SNAPSHOT_AGE_DAYS" ]; then
+    bad "last run was clean but ${run_age}d ago — timer may have stopped"
+  else
+    ok "last run clean — $when"
   fi
+fi
+# The direct check for the same failure: a stuck oneshot leaves the timer
+# with no next trigger at all. Repair is systemd/install.sh, not a restart.
+next=$(systemctl show -p NextElapseUSecRealtime --value homelab-backup.timer)
+if [ -n "$next" ] && [ "$next" != "0" ]; then
+  ok "backup timer scheduled — $next"
+else
+  bad "backup timer has no next trigger — see scripts/backup-timer-test.sh"
 fi
 
 for f in "$STAGING/pg_dumpall.sql" "$STAGING/immich_pg_dumpall.sql"; do
