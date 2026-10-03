@@ -56,11 +56,12 @@ creds; recipient(s) are configured via `toAddresses` in
 
 | Time  | Job                                                                    |
 | ------ | ------------------------------------------------------------------------ |
+| 02:00 | Reboot window, if the previous morning's patches require one (`apt/52homelab-reboot`) |
 | 03:00 | Backup: dump both clusters → local repo → array mirror → B2 → Pi (if configured, see [pi-backup.md](pi-backup.md)) → ping (`homelab-backup.timer`, ±5m jitter) |
-| 04:30 | Reboot window, if patches require one (`apt/50unattended-upgrades`)      |
 | 05:00 | Watchtower patch updates (`WATCHTOWER_SCHEDULE`)                         |
+| 06:00 | Security patches install (stock `apt-daily-upgrade.timer`, +0–60m)  |
 
-The ordering is deliberate and the three must not overlap — a reboot landing
+The ordering is deliberate and none of these may overlap — a reboot landing
 mid-backup kills it partway through. If you change any of these, change them
 together.
 
@@ -94,18 +95,11 @@ death reports as all-green.
    [pi-backup.md](pi-backup.md#verification).
 3. **Restore test** — a backup you have never restored is a hypothesis. See
    [restore.md](restore.md#verify-it-actually-works).
-4. **Deep-verify the local repository.** The nightly `check` validates
-   structure only; this reads a sample of actual data and catches a silently
-   failing disk:
-   ```bash
-   sudo restic -r /srv/docker-data/restic-repo \
-     --password-file /root/.restic-password check --read-data-subset=5%
-   ```
-5. `sudo ufw status verbose` — still the expected rules, nothing new.
-6. `docker system df` — reclaim space if images have crept up.
-7. Check **B2 usage** against the 10 GB free tier (`healthcheck.sh` reports it
+4. `sudo ufw status verbose` — still the expected rules, nothing new.
+5. `docker system df` — reclaim space if images have crept up.
+6. Check **B2 usage** against the 10 GB free tier (`healthcheck.sh` reports it
    and warns at 8 GB).
-8. `tailscale status` — remove devices you no longer own.
+7. `tailscale status` — remove devices you no longer own.
 
 **Quarterly — thirty minutes**
 

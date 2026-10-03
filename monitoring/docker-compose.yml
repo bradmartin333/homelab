@@ -1,6 +1,11 @@
 services:
   grafana:
-    image: grafana/grafana:latest
+    # Image tags follow docs/operations.md: watchtower applies patches, and the
+    # tag caps how far it can go. Grafana publishes no major-only tag, so
+    # this is minor-pinned. cadvisor and postgres-exporter publish only exact
+    # versions (and postgres-exporter is still 0.x, where `v0` can break), so
+    # watchtower leaves those two alone and they move by hand.
+    image: grafana/grafana:13.2
     container_name: grafana
     restart: unless-stopped
     env_file: .env
@@ -23,7 +28,7 @@ services:
       - "${TAILSCALE_IP:?set TAILSCALE_IP in the root .env}:3000:3000"
 
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v3
     container_name: prometheus
     restart: unless-stopped
     security_opt: [no-new-privileges:true]
@@ -33,7 +38,7 @@ services:
     # then execs prometheus. Its jobs read them with credentials_file.
     # Overriding entrypoint drops the image's CMD, so its two default flags
     # are repeated here. Recheck them if the image ever changes its defaults:
-    #   docker inspect prom/prometheus:latest --format '{{json .Config.Cmd}}'
+    #   docker inspect prom/prometheus:v3 --format '{{json .Config.Cmd}}'
     #
     # Chosen over bind-mounting token files from /srv/docker-data/monitoring/
     # so each token keeps one home, its app's .env. The trade-off, the same
@@ -56,6 +61,8 @@ services:
         exec /bin/prometheus
         --config.file=/etc/prometheus/prometheus.yml
         --storage.tsdb.path=/prometheus
+        --storage.tsdb.retention.time=30d
+        --storage.tsdb.retention.size=5GB
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - /srv/docker-data/monitoring/prometheus:/prometheus
@@ -68,7 +75,7 @@ services:
       - "${TAILSCALE_IP:?set TAILSCALE_IP in the root .env}:9090:9090"
 
   node-exporter:
-    image: prom/node-exporter:latest
+    image: prom/node-exporter:v1
     container_name: node-exporter
     restart: unless-stopped
     security_opt: [no-new-privileges:true]
@@ -88,7 +95,7 @@ services:
       - "com.centurylinklabs.watchtower.enable=true"
 
   cadvisor:
-    image: gcr.io/cadvisor/cadvisor:latest
+    image: gcr.io/cadvisor/cadvisor:v0.55.1
     container_name: cadvisor
     restart: unless-stopped
     security_opt: [no-new-privileges:true]
@@ -116,7 +123,7 @@ services:
       - "com.centurylinklabs.watchtower.enable=true"
 
   postgres-exporter:
-    image: prometheuscommunity/postgres-exporter:latest
+    image: prometheuscommunity/postgres-exporter:v0.20.1
     container_name: postgres-exporter
     restart: unless-stopped
     security_opt: [no-new-privileges:true]
@@ -138,7 +145,7 @@ services:
       - "com.centurylinklabs.watchtower.enable=true"
 
   immich-postgres-exporter:
-    image: prometheuscommunity/postgres-exporter:latest
+    image: prometheuscommunity/postgres-exporter:v0.20.1
     container_name: immich-postgres-exporter
     restart: unless-stopped
     security_opt: [no-new-privileges:true]

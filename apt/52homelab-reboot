@@ -1,0 +1,27 @@
+// Drop-in overriding the reboot policy that `dpkg-reconfigure unattended-upgrades`
+// writes into /etc/apt/apt.conf.d/50unattended-upgrades.
+//
+// A separate file on purpose. apt reads every file in apt.conf.d in name order and
+// later assignments win, so 52 overrides 50 without touching it. Writing these three
+// directives by overwriting 50unattended-upgrades would delete that file's
+// Unattended-Upgrade::Allowed-Origins block, and with no allowed origins the daily
+// run installs nothing at all — silently, while still logging and still rebooting.
+//
+// Kernel and library security patches need a reboot to take effect, and nobody is
+// physically at the machine to do it.
+
+Unattended-Upgrade::Automatic-Reboot "true";
+
+// Reboot even with users logged in. The alternative is a patched kernel that never
+// loads because someone left an ssh session open in October.
+Unattended-Upgrade::Automatic-Reboot-WithUsers "true";
+
+// The quietest slot that collides with nothing. unattended-upgrade runs from the stock
+// apt-daily-upgrade.timer (06:00 + up to 60m random delay) and schedules the reboot for
+// the next occurrence of this time, so a patch that lands at 06:20 reboots at 02:00 the
+// following night — about 20h later, which is fine here and keeps reboots out of the
+// day. It also clears fstrim.timer (Mondays 00:00 + up to ~100m), lands hours away
+// from the next upgrade run, and is back up well before homelab-backup.timer (nightly
+// ~03:00, ±5m jitter). A reboot landing mid-backup kills it and leaves a restic lock.
+// Avoid 06:00–07:00 (mid-upgrade) and daytime (people are using the apps).
+Unattended-Upgrade::Automatic-Reboot-Time "02:00";

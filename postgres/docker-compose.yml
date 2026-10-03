@@ -3,6 +3,7 @@ services:
     image: postgres:18
     container_name: postgres
     restart: unless-stopped
+    security_opt: [no-new-privileges:true]
     env_file: .env
     shm_size: 256mb
     stop_grace_period: 1m

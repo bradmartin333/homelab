@@ -1,4 +1,0 @@
-Unattended-Upgrade::Automatic-Reboot "true";
-// when Unattended-Upgrade::Automatic-Reboot is set to true
-Unattended-Upgrade::Automatic-Reboot-WithUsers "true";
-Unattended-Upgrade::Automatic-Reboot-Time "04:30";
