@@ -230,6 +230,7 @@ tunnel ingress hand every hostname to traefik automatically.
 | `/opt/homelab/<app>/`                 | Compose files + `.env` — in Git, encrypted as `.env.enc`         |
 | `/opt/homelab/.env`                   | Non-secret compose interpolation (domains, bind IP, ACME email, build branches) |
 | `/srv/docker-data/<app>/`             | Persistent app state — backed up with exclusions                 |
+| `/srv/docker-data/gickup`             | GitHub repo mirrors — see [github-mirrors.md](github-mirrors.md) |
 | `/srv/docker-data/restic-repo`        | Local restic repository                                          |
 | `/srv/media/restic-mirror`            | Mirror of the local repo, on the array                           |
 | `/srv/media/immich`                   | Immich library — mirrored, and backed up to the Pi target only   |

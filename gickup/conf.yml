@@ -1,0 +1,54 @@
+# gickup config — see gickup/docker-compose.yml for the why.
+# Reference: https://github.com/cooperspencer/gickup/blob/main/conf.example.yml
+
+source:
+  github:
+    # Fine-grained token owned by bradmartin333, "All repositories", read-only
+    # Contents + Metadata. "All repositories" so `include:` below is the only
+    # list to edit. A fine-grained token also sees only repos its owner owns,
+    # so `include:`, which matches on name alone, can't pick up a
+    # collaborator's or org's repo with the same name.
+    - token_file: /tmp/github-token
+      wiki: true
+      # Whitelist: only these repos (and their wikis) are mirrored. Every
+      # name added grows B2, which has a 10 GB free tier. Removing a name
+      # stops updates but leaves the existing mirror on disk; delete
+      # /srv/docker-data/gickup/github.com/bradmartin333/<name>.git by hand to
+      # drop it from future snapshots.
+      include:
+        - homelab
+        - LLC
+        - dotfiles
+        - bradmartin333.github.io
+        - talkomatic-classic
+        - homelab-landing
+        - blueline
+        - pydcscontrol
+        - EPICS-Projects
+        - hevc_player
+        - spore_viewer
+        - paco-juego
+        - SEYR
+        - BoopQuest
+        - GridMaker
+        - RGBLED
+        - XferSuite
+
+destination:
+  local:
+    - path: /mirrors
+      # <path>/github.com/<owner>/<repo>.git
+      structured: true
+      # Bare clone of every ref, updated in place with a fetch each night.
+      mirror: true
+
+# Half an hour ahead of homelab-backup.timer (03:00), so each night's
+# snapshot picks up that night's mirrors. Not 02:00: that's when
+# unattended-upgrades reboots the box (apt/52homelab-reboot), and a run would
+# be killed partway through.
+cron: 30 2 * * *
+
+metrics:
+  prometheus:
+    endpoint: /metrics
+    listen_addr: ":6178"

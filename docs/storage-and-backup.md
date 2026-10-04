@@ -1,7 +1,8 @@
 # Storage layout & backup
 
-How the disks are laid out and what gets backed up where. Getting data back out
-is a separate doc: [restore.md](restore.md).
+How the disks are laid out and what gets backed up where. Setting the backup
+up on a fresh box is [systemd/README.md](../systemd/README.md); getting data
+back out is [restore.md](restore.md).
 
 ## Layout
 
@@ -10,6 +11,7 @@ is a separate doc: [restore.md](restore.md).
 | `/`                               | nvme  | OS, docker images                                | no — rebuildable       |
 | `/opt/homelab`                    | nvme  | this repo, decrypted `.env` files                | restic + B2            |
 | `/srv/docker-data`                | `sdb` | postgres PGDATA, immich PGDATA, vikunja files    | restic + B2, partial   |
+| `/srv/docker-data/gickup`         | `sdb` | GitHub repo mirrors — see [github-mirrors.md](github-mirrors.md) | restic + B2  |
 | `/srv/docker-data/restic-repo`    | `sdb` | the local restic repository                      | is the backup          |
 | `/srv/media/immich`               | `md0` | Immich media library (`$UPLOAD_LOCATION`)        | rPi replica — see [`pi-backup.md`](pi-backup.md) |
 | `/srv/media/restic-mirror`        | `md0` | mirror of the local restic repo                  | is a backup copy       |
