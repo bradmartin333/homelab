@@ -5,7 +5,7 @@ case GitHub loses them or goes away. It's a backup, not a place to work from.
 
 ## How it works
 
-- The `gickup` container ([`../gickup/`](../gickup/)) runs at 02:00 and makes
+- The `gickup` container ([`../gickup/`](../gickup/)) runs at 02:30 and makes
   or updates a bare `--mirror` clone of each repo under
   `/srv/docker-data/gickup/github.com/bradmartin333/<repo>.git`. Wikis sit
   next to their repo as `<repo>.wiki.git`.
@@ -48,7 +48,7 @@ snapshots. B2 frees the space after the next monthly prune.
 3. `./homelab-secrets.sh commit "add gickup"`.
 4. `docker compose up -d gickup prometheus` (prometheus picks up the new
    scrape job).
-5. Do the first run now instead of waiting for 02:00:
+5. Do the first run now instead of waiting for 02:30:
 
    ```bash
    docker exec gickup sh -c \

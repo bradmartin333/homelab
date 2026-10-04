@@ -29,9 +29,11 @@ destination:
       # Bare clone of every ref, updated in place with a fetch each night.
       mirror: true
 
-# An hour ahead of homelab-backup.timer (03:00), so each night's snapshot
-# picks up that night's mirrors.
-cron: 0 2 * * *
+# Half an hour ahead of homelab-backup.timer (03:00), so each night's
+# snapshot picks up that night's mirrors. Not 02:00: that's when
+# unattended-upgrades reboots the box (apt/52homelab-reboot), and a run would
+# be killed partway through.
+cron: 30 2 * * *
 
 metrics:
   prometheus:
