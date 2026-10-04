@@ -1,7 +1,8 @@
 # Storage layout & backup
 
-How the disks are laid out and what gets backed up where. Getting data back out
-is a separate doc: [restore.md](restore.md).
+How the disks are laid out and what gets backed up where. Setting the backup
+up on a fresh box is [systemd/README.md](../systemd/README.md); getting data
+back out is [restore.md](restore.md).
 
 ## Layout
 
