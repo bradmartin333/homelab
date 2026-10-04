@@ -8,4 +8,5 @@ include:
   - cloudflared/docker-compose.yml
   - immich/docker-compose.yml
   - watchtower/docker-compose.yml
+  - gickup/docker-compose.yml
   - monitoring/docker-compose.yml

@@ -1,0 +1,43 @@
+services:
+  # Nightly mirrors of every GitHub repo I own (forks included) plus any wikis,
+  # as bare `--mirror` clones under /srv/docker-data/gickup. That path is
+  # inside restic's SOURCES, so the 03:00 backup carries the mirrors into the
+  # local repo, the array copy and B2 — restic's snapshot history is what
+  # protects against a force-push or a deleted repo upstream, so gickup itself
+  # keeps no history (`keep` is unset in conf.yml). Disaster recovery only;
+  # nothing pushes to or develops from these. See docs/github-mirrors.md.
+  gickup:
+    # 0.x, so `0.10` is the tightest cap that still lets watchtower patch.
+    image: buddyspencer/gickup:0.10
+    container_name: gickup
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    # GITHUB_TOKEN comes from .env. conf.yml reads it through token_file, not
+    # `token: GITHUB_TOKEN`: gickup resolves an env-var name for cloning but
+    # passes the bare name as the password when probing for wikis, so with
+    # `token:` every wiki silently drops out. The shell writes the token to a
+    # file first (umask 077), the way prometheus does its scrape tokens.
+    # Overriding entrypoint drops the image's CMD, so the config path is
+    # repeated here.
+    env_file: .env
+    entrypoint:
+      - /bin/sh
+      - -c
+      - >-
+        umask 077 &&
+        printf %s "$$GITHUB_TOKEN" > /tmp/github-token &&
+        exec /gickup/gickup /gickup/conf.yml
+    environment:
+      # gickup's cron runs in the container's local time.
+      TZ: "America/New_York"
+    volumes:
+      - ./conf.yml:/gickup/conf.yml:ro
+      - /srv/docker-data/gickup:/mirrors
+    networks:
+      - monitoring_internal
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+networks:
+  monitoring_internal:
+    external: true

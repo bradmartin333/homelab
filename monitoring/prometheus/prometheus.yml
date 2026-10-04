@@ -100,3 +100,11 @@ scrape_configs:
       credentials_file: /tmp/talkomatic-metrics-token
     static_configs:
       - targets: ["talkomatic:3000"]
+
+  - job_name: gickup
+    # Unauthenticated, like vikunja: only reachable on monitoring_internal.
+    # gickup_repo_success{repository=...} is 1 or 0 per repo after each
+    # nightly run; it has no last-run timestamp, so staleness can't be seen
+    # from these metrics alone.
+    static_configs:
+      - targets: ["gickup:6178"]
