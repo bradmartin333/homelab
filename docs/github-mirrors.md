@@ -24,10 +24,10 @@ Issues, PRs and releases are **not** mirrored, only git data.
 ## Choosing repos
 
 Only repos named under `include:` in [`../gickup/conf.yml`](../gickup/conf.yml)
-are mirrored: `XferSuite` (about 460 MB on GitHub, 2026-10) and the
-`talkomatic-classic` fork (about 44 MB). A fork goes on the list the same
-way as any other repo, under my fork's name. Git packs barely compress further, so each repo added grows B2 by
-roughly its GitHub size, against the 10 GB free tier. To find a repo's size:
+are mirrored. That list is the source of truth for what's backed up. A fork
+goes on it the same way as any other repo, under my fork's name. Git packs
+barely compress further, so each repo added grows B2 by roughly its GitHub
+size, against the 10 GB free tier. To find a repo's size:
 `gh api repos/bradmartin333/<repo> --jq .size` (in KB).
 
 Taking a repo off the list stops future updates but leaves its existing
@@ -61,7 +61,7 @@ snapshots. B2 frees the space after the next monthly prune.
    - `docker logs gickup` shows no errors.
    - `sudo ls /srv/docker-data/gickup/github.com/bradmartin333` lists each
      whitelisted repo, plus a `.wiki.git` for each one that has a wiki.
-   - `sudo git -C /srv/docker-data/gickup/github.com/bradmartin333/XferSuite.git log -1`
+   - `sudo git -C /srv/docker-data/gickup/github.com/bradmartin333/<repo>.git log -1`
      shows the latest commit.
 
 ## Token expiry
