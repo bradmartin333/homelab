@@ -24,8 +24,9 @@ Issues, PRs and releases are **not** mirrored, only git data.
 ## Choosing repos
 
 Only repos named under `include:` in [`../gickup/conf.yml`](../gickup/conf.yml)
-are mirrored. It starts with just `XferSuite` (about 460 MB on GitHub,
-2026-10). Git packs barely compress further, so each repo added grows B2 by
+are mirrored: `XferSuite` (about 460 MB on GitHub, 2026-10) and the
+`talkomatic-classic` fork (about 44 MB). A fork goes on the list the same
+way as any other repo, under my fork's name. Git packs barely compress further, so each repo added grows B2 by
 roughly its GitHub size, against the 10 GB free tier. To find a repo's size:
 `gh api repos/bradmartin333/<repo> --jq .size` (in KB).
 

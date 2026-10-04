@@ -17,6 +17,9 @@ source:
       # drop it from future snapshots.
       include:
         - XferSuite
+        # A fork is listed the same way, by my fork's name. The mirror is my
+        # fork as it stands on GitHub; upstream's own branches aren't fetched.
+        - talkomatic-classic
 
 destination:
   local:
