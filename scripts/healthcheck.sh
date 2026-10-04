@@ -258,9 +258,14 @@ done
 # long enough to have had one.
 gickup_logs=$(docker logs --since "${MIRROR_MAX_AGE_HOURS}h" gickup 2>&1 || true)
 gickup_started=$(docker inspect -f '{{.State.StartedAt}}' gickup 2>/dev/null || true)
-if grep -q "Encountered at least one error" <<< "$gickup_logs"; then
+# The window can span two nightly runs, so judge only the latest one. gickup
+# logs "Backup run complete" at the end of every run, failed or not, and logs
+# the error line just before it when the run failed.
+gickup_last=$(grep -E "Encountered at least one error|Backup run complete" <<< "$gickup_logs" | tail -n 2)
+if [ "$(grep -c "Backup run complete" <<< "$gickup_last")" -eq 1 ] \
+  && grep -q "Encountered at least one error" <<< "$(head -n 1 <<< "$gickup_last")"; then
   bad "last gickup run had errors — check: docker logs gickup"
-elif grep -q "Backup run complete" <<< "$gickup_logs"; then
+elif grep -q "Backup run complete" <<< "$gickup_last"; then
   ok "gickup run completed in the last ${MIRROR_MAX_AGE_HOURS}h"
 elif [ -n "$gickup_started" ] \
   && [ $(( $(date +%s) - $(date -d "$gickup_started" +%s) )) -lt $(( MIRROR_MAX_AGE_HOURS * 3600 )) ]; then
