@@ -46,8 +46,15 @@ snapshots. B2 frees the space after the next monthly prune.
 2. On the box: `cd /opt/homelab && git pull`, then
    `cp gickup/.env.example gickup/.env` and set `GITHUB_TOKEN`.
 3. `./homelab-secrets.sh commit "add gickup"`.
-4. `docker compose up -d gickup prometheus` (prometheus picks up the new
-   scrape job).
+4. Start gickup, then reload prometheus so it picks up the new scrape job.
+   `up -d` alone won't: prometheus.yml is bind-mounted, so its container
+   isn't recreated, and prometheus only reads the file at startup or on
+   reload. `scripts/redeploy.sh` does the same reload.
+
+   ```bash
+   docker compose up -d gickup
+   docker compose exec -T prometheus wget -qO- --post-data='' http://localhost:9090/-/reload
+   ```
 5. Do the first run now instead of waiting for 02:30:
 
    ```bash
