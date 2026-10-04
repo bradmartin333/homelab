@@ -39,6 +39,11 @@ B2_WARN_BYTES=$((8 * 1024 * 1024 * 1024))
 # the box, not a script change: `df -B1 --output=size /mnt/offsite | tail -1`
 # on the Pi gives the value to put there. See docs/pi-backup.md#current-state.
 PI_WARN_PCT=85
+GICKUP_CONF="$REPO_DIR/gickup/conf.yml"
+MIRROR_DIR=/srv/docker-data/gickup/github.com/bradmartin333
+# gickup runs nightly at 02:30; 26h allows for a slow run without letting a
+# whole missed night through.
+MIRROR_MAX_AGE_HOURS=26
 
 ok()   { printf '  \033[32m✓\033[0m %s\n' "$1"; }
 bad()  { printf '  \033[31m✗\033[0m %s\n' "$1"; }
@@ -57,6 +62,17 @@ snapshot_age_days() {
     | grep -o '"time":"[^"]*"' | cut -d'"' -f4 | sort -r | head -1)
   [ -n "$when" ] || return 0
   echo $(( ( $(date +%s) - $(date -d "$when" +%s) ) / 86400 ))
+}
+
+# Repo names under `include:` in gickup's conf.yml, one per line. Parsed with
+# awk because the box has no yq; it relies on the list being plain
+# `- name` lines, with comments allowed between them. sanitycheck.sh has a
+# copy of this.
+gickup_include() {
+  awk '/^[[:space:]]*include:/ { f = 1; next }
+       f && /^[[:space:]]*#/  { next }
+       f && /^[[:space:]]*- / { sub(/^[[:space:]]*- */, ""); print; next }
+       f                      { f = 0 }' "$1"
 }
 
 check_repo() {
@@ -215,6 +231,42 @@ if [ -f "$PI_ENV" ]; then
   fi
 else
   warn "$PI_ENV not found — Pi backup target not yet configured, see docs/pi-backup.md"
+fi
+
+echo; echo "GITHUB MIRRORS"
+# The whitelist in gickup/conf.yml is the source of truth; each name on it
+# should have a mirror on disk. Whether that mirror made it into the backups
+# is sanitycheck.sh's job.
+mapfile -t mirror_repos < <(gickup_include "$GICKUP_CONF")
+if [ ${#mirror_repos[@]} -eq 0 ]; then
+  bad "no repos found under include: in $GICKUP_CONF"
+fi
+for r in "${mirror_repos[@]}"; do
+  m="$MIRROR_DIR/$r.git"
+  if [ ! -d "$m" ]; then
+    bad "$r — no mirror at $m"
+  elif ! git -C "$m" rev-parse --verify -q HEAD >/dev/null 2>&1; then
+    bad "$r — mirror has no valid HEAD: $m"
+  else
+    ok "$r mirrored, $(du -sh "$m" | cut -f1)"
+  fi
+done
+# gickup records no last-run time anywhere on disk, so its log is the only
+# record of whether last night's run happened and worked. The log resets
+# whenever the container is recreated (a redeploy, or watchtower at 05:00),
+# so a missing run only counts as a failure if the container has been up
+# long enough to have had one.
+gickup_logs=$(docker logs --since "${MIRROR_MAX_AGE_HOURS}h" gickup 2>&1 || true)
+gickup_started=$(docker inspect -f '{{.State.StartedAt}}' gickup 2>/dev/null || true)
+if grep -q "Encountered at least one error" <<< "$gickup_logs"; then
+  bad "last gickup run had errors — check: docker logs gickup"
+elif grep -q "Backup run complete" <<< "$gickup_logs"; then
+  ok "gickup run completed in the last ${MIRROR_MAX_AGE_HOURS}h"
+elif [ -n "$gickup_started" ] \
+  && [ $(( $(date +%s) - $(date -d "$gickup_started" +%s) )) -lt $(( MIRROR_MAX_AGE_HOURS * 3600 )) ]; then
+  warn "no gickup run since the container started at $gickup_started — next one is 02:30"
+else
+  bad "no gickup run in the last ${MIRROR_MAX_AGE_HOURS}h — check: docker logs gickup"
 fi
 
 echo; echo "NETWORK"

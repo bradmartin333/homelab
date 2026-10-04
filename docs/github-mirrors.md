@@ -64,12 +64,27 @@ snapshots. B2 frees the space after the next monthly prune.
    - `sudo git -C /srv/docker-data/gickup/github.com/bradmartin333/<repo>.git log -1`
      shows the latest commit.
 
+## Checks
+
+- `sudo ./scripts/healthcheck.sh`, **GITHUB MIRRORS** section: each repo on
+  the whitelist has a valid mirror on disk, and gickup's log shows a
+  completed, error-free run in the last 26h. The log resets when the
+  container is recreated, so right after a redeploy or a watchtower update
+  this shows a warning until the next 02:30 run, not a failure. A manual
+  first run (step 5) goes to your terminal, not the container log, so it
+  doesn't count either.
+- `sudo ./scripts/sanitycheck.sh`: each whitelisted mirror is inside the
+  latest nightly snapshot, which the same script already checks is identical
+  in the local, array and B2 repos. A repo added to the whitelist fails this
+  until the 03:00 backup after its first mirror run.
+
 ## Token expiry
 
 Fine-grained tokens expire. When the token runs out, the nightly run fails
-and every repo stops updating, while the container keeps running and
-`healthcheck.sh` stays green. The signal is `gickup_repo_success == 0` in
-Prometheus, or an auth error in `docker logs gickup`. Rotate it by editing
+and every repo stops updating, while the container keeps running.
+`healthcheck.sh` reports it as a run with errors. You'll also see
+`gickup_repo_success == 0` in Prometheus and an auth error in
+`docker logs gickup`. Rotate it by editing
 `gickup/.env`, then run `./homelab-secrets.sh commit "rotate gickup token"`
 and `docker compose up -d gickup`.
 
