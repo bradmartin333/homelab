@@ -16,10 +16,23 @@ source:
       # /srv/docker-data/gickup/github.com/bradmartin333/<name>.git by hand to
       # drop it from future snapshots.
       include:
-        - XferSuite
-        # A fork is listed the same way, by my fork's name. The mirror is my
-        # fork as it stands on GitHub; upstream's own branches aren't fetched.
+        - homelab
+        - LLC
+        - dotfiles
+        - bradmartin333.github.io
         - talkomatic-classic
+        - homelab-landing
+        - blueline
+        - pydcscontrol
+        - EPICS-Projects
+        - hevc_player
+        - spore_viewer
+        - paco-juego
+        - SEYR
+        - BoopQuest
+        - GridMaker
+        - RGBLED
+        - XferSuite
 
 destination:
   local:
