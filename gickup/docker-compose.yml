@@ -1,5 +1,5 @@
 services:
-  # Nightly mirrors of the GitHub repos whitelisted in conf.yml, plus their
+  # Nightly mirrors of the GitHub repos whitelisted in .env, plus their
   # wikis, as bare `--mirror` clones under /srv/docker-data/gickup. That path is
   # inside restic's SOURCES, so the 03:00 backup carries the mirrors into the
   # local repo, the array copy and B2 — restic's snapshot history is what
@@ -17,16 +17,22 @@ services:
     # passes the bare name as the password when probing for wikis, so with
     # `token:` every wiki silently drops out. The shell writes the token to a
     # file first (umask 077), the way prometheus does its scrape tokens.
-    # Overriding entrypoint drops the image's CMD, so the config path is
-    # repeated here.
+    # GICKUP_INCLUDE, the comma-separated whitelist, also comes from .env.
+    # gickup can't read a list from the environment, so the shell writes it
+    # into the `include:` line of a copy of conf.yml and gickup runs that
+    # copy. An unset or empty list stops the container rather than risk
+    # gickup reading an empty `include:` as no filter at all.
     env_file: .env
     entrypoint:
       - /bin/sh
       - -c
       - >-
         umask 077 &&
+        : "$${GICKUP_INCLUDE:?is not set in gickup/.env}" &&
         printf %s "$$GITHUB_TOKEN" > /tmp/github-token &&
-        exec /gickup/gickup /gickup/conf.yml
+        sed "s|^\([[:space:]]*include:\).*|\1 [$$GICKUP_INCLUDE]|"
+        /gickup/conf.yml > /tmp/conf.yml &&
+        exec /gickup/gickup /tmp/conf.yml
     environment:
       # gickup's cron runs in the container's local time.
       TZ: "America/New_York"

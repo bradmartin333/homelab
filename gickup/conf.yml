@@ -4,35 +4,22 @@
 source:
   github:
     # Fine-grained token owned by bradmartin333, "All repositories", read-only
-    # Contents + Metadata. "All repositories" so `include:` below is the only
+    # Contents + Metadata. "All repositories" so GICKUP_INCLUDE is the only
     # list to edit. A fine-grained token also sees only repos its owner owns,
     # so `include:`, which matches on name alone, can't pick up a
     # collaborator's or org's repo with the same name.
     - token_file: /tmp/github-token
       wiki: true
-      # Whitelist: only these repos (and their wikis) are mirrored. Every
-      # name added grows B2, which has a 10 GB free tier. Removing a name
-      # stops updates but leaves the existing mirror on disk; delete
-      # /srv/docker-data/gickup/github.com/bradmartin333/<name>.git by hand to
-      # drop it from future snapshots.
-      include:
-        - homelab
-        - LLC
-        - dotfiles
-        - bradmartin333.github.io
-        - talkomatic-classic
-        - homelab-landing
-        - blueline
-        - pydcscontrol
-        - EPICS-Projects
-        - hevc_player
-        - spore_viewer
-        - paco-juego
-        - SEYR
-        - BoopQuest
-        - GridMaker
-        - RGBLED
-        - XferSuite
+      # Whitelist: only the repos named in GICKUP_INCLUDE in gickup/.env (and
+      # their wikis) are mirrored. It's kept there, sops-encrypted, so the
+      # list of repos stays out of this public repo. The container's entrypoint swaps the placeholder below for that
+      # list before gickup starts (see docker-compose.yml); run as-is, it
+      # matches no repo, so a missing list can't turn into "mirror
+      # everything". Every name added grows B2, which has a 10 GB free tier.
+      # Removing a name stops updates but leaves the existing mirror on disk;
+      # delete /srv/docker-data/gickup/github.com/bradmartin333/<name>.git by
+      # hand to drop it from future snapshots.
+      include: [GICKUP_INCLUDE]
 
 destination:
   local:

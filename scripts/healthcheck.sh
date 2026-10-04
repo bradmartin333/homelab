@@ -39,7 +39,7 @@ B2_WARN_BYTES=$((8 * 1024 * 1024 * 1024))
 # the box, not a script change: `df -B1 --output=size /mnt/offsite | tail -1`
 # on the Pi gives the value to put there. See docs/pi-backup.md#current-state.
 PI_WARN_PCT=85
-GICKUP_CONF="$REPO_DIR/gickup/conf.yml"
+GICKUP_ENV="$REPO_DIR/gickup/.env"
 MIRROR_DIR=/srv/docker-data/gickup/github.com/bradmartin333
 # gickup runs nightly at 02:30; 26h allows for a slow run without letting a
 # whole missed night through.
@@ -64,15 +64,12 @@ snapshot_age_days() {
   echo $(( ( $(date +%s) - $(date -d "$when" +%s) ) / 86400 ))
 }
 
-# Repo names under `include:` in gickup's conf.yml, one per line. Parsed with
-# awk because the box has no yq; it relies on the list being plain
-# `- name` lines, with comments allowed between them. sanitycheck.sh has a
-# copy of this.
+# Repo names in GICKUP_INCLUDE in gickup/.env, one per line. Read with grep
+# instead of sourcing the file, so the GitHub token next to it stays out of
+# this shell. sanitycheck.sh has a copy of this.
 gickup_include() {
-  awk '/^[[:space:]]*include:/ { f = 1; next }
-       f && /^[[:space:]]*#/  { next }
-       f && /^[[:space:]]*- / { sub(/^[[:space:]]*- */, ""); print; next }
-       f                      { f = 0 }' "$1"
+  { grep -m1 '^GICKUP_INCLUDE=' "$1" || true; } | cut -d= -f2- \
+    | tr -d "\"' \r" | tr ',' '\n' | { grep -v '^$' || true; }
 }
 
 check_repo() {
@@ -234,12 +231,12 @@ else
 fi
 
 echo; echo "GITHUB MIRRORS"
-# The whitelist in gickup/conf.yml is the source of truth; each name on it
+# The whitelist in gickup/.env is the source of truth; each name on it
 # should have a mirror on disk. Whether that mirror made it into the backups
 # is sanitycheck.sh's job.
-mapfile -t mirror_repos < <(gickup_include "$GICKUP_CONF")
+mapfile -t mirror_repos < <(gickup_include "$GICKUP_ENV" 2>/dev/null)
 if [ ${#mirror_repos[@]} -eq 0 ]; then
-  bad "no repos found under include: in $GICKUP_CONF"
+  bad "no repos in GICKUP_INCLUDE in $GICKUP_ENV"
 fi
 for r in "${mirror_repos[@]}"; do
   m="$MIRROR_DIR/$r.git"

@@ -23,9 +23,24 @@ Issues, PRs and releases are **not** mirrored, only git data.
 
 ## Choosing repos
 
-Only repos named under `include:` in [`../gickup/conf.yml`](../gickup/conf.yml)
-are mirrored. That list is the source of truth for what's backed up. A fork
-goes on it the same way as any other repo, under my fork's name. Git packs
+Only repos named in `GICKUP_INCLUDE` in `gickup/.env` are mirrored: a
+comma-separated list of repo names, no owner prefix. That list is the source
+of truth for what's backed up. It lives in the sops-encrypted `.env`, not in
+[`../gickup/conf.yml`](../gickup/conf.yml), so the list of repos stays out
+of this public repo. At container start the entrypoint writes it into the
+`include:` line of a copy of `conf.yml`, which is what gickup actually runs;
+if the variable is unset or empty the container exits instead. A fork goes on
+it the same way as any other repo, under my fork's name.
+
+To change the list, edit `gickup/.env` on the box, then:
+
+```bash
+./homelab-secrets.sh commit "update gickup whitelist"
+docker compose up -d gickup
+```
+
+`up -d` recreates the container because its env changed, which is what
+picks up the new list. Git packs
 barely compress further, so each repo added grows B2 by roughly its GitHub
 size, against the 10 GB free tier. To find a repo's size:
 `gh api repos/bradmartin333/<repo> --jq .size` (in KB).
@@ -39,12 +54,13 @@ snapshots. B2 frees the space after the next monthly prune.
 1. Create a fine-grained token at
    <https://github.com/settings/personal-access-tokens/new>. Resource owner:
    `bradmartin333`. Repository access: All repositories. Permissions:
-   Contents read-only. "All repositories" keeps the whitelist in
-   `conf.yml` the only list to edit. A fine-grained token also only sees
-   repos its owner owns, so `include:`, which matches on name alone, can't
+   Contents read-only. "All repositories" keeps `GICKUP_INCLUDE` the only
+   list to edit. A fine-grained token also only sees
+   repos its owner owns, so the whitelist, which matches on name alone, can't
    pick up someone else's repo with the same name.
 2. On the box: `cd /opt/homelab && git pull`, then
-   `cp gickup/.env.example gickup/.env` and set `GITHUB_TOKEN`.
+   `cp gickup/.env.example gickup/.env` and set `GITHUB_TOKEN` and
+   `GICKUP_INCLUDE`.
 3. `./homelab-secrets.sh commit "add gickup"`.
 4. Start gickup, then reload prometheus so it picks up the new scrape job.
    `up -d` alone won't: prometheus.yml is bind-mounted, so its container
@@ -59,11 +75,12 @@ snapshots. B2 frees the space after the next monthly prune.
 
    ```bash
    docker exec gickup sh -c \
-     "sed '/^cron:/d' /gickup/conf.yml > /tmp/once.yml && /gickup/gickup /tmp/once.yml"
+     "sed '/^cron:/d' /tmp/conf.yml > /tmp/once.yml && /gickup/gickup /tmp/once.yml"
    ```
 
-   Without `cron:`, gickup runs once and exits. The token file it reads was
-   already written when the container started.
+   Without `cron:`, gickup runs once and exits. `/tmp/conf.yml` (the copy
+   with the whitelist filled in) and the token file it reads were both
+   written when the container started.
 6. Check:
    - `docker logs gickup` shows no errors.
    - `sudo ls /srv/docker-data/gickup/github.com/bradmartin333` lists each

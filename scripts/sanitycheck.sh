@@ -6,7 +6,7 @@ LOCAL_REPO=/srv/docker-data/restic-repo
 ARRAY_REPO=/srv/media/restic-mirror
 PI_ENV=/root/.restic-pi.env
 B2_ENV=/root/.restic-b2.env
-GICKUP_CONF="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/gickup/conf.yml"
+GICKUP_ENV="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/gickup/.env"
 MIRROR_DIR=/srv/docker-data/gickup/github.com/bradmartin333
 # Every failure below says what failed. Under set -e a bare missing file or
 # empty grep would otherwise exit 1 with no output at all.
@@ -26,13 +26,11 @@ latest_time() {
   { grep -o '"time":"[^"]*"' || true; } <<< "$json" | cut -d'"' -f4 | sort -r | head -1
 }
 
-# Repo names under `include:` in gickup's conf.yml, one per line. A copy of
-# the same function in healthcheck.sh; see the note there.
+# Repo names in GICKUP_INCLUDE in gickup/.env, one per line. A copy of the
+# same function in healthcheck.sh; see the note there.
 gickup_include() {
-  awk '/^[[:space:]]*include:/ { f = 1; next }
-       f && /^[[:space:]]*#/  { next }
-       f && /^[[:space:]]*- / { sub(/^[[:space:]]*- */, ""); print; next }
-       f                      { f = 0 }' "$1"
+  { grep -m1 '^GICKUP_INCLUDE=' "$1" || true; } | cut -d= -f2- \
+    | tr -d "\"' \r" | tr ',' '\n' | { grep -v '^$' || true; }
 }
 
 local_t=$(latest_time "$LOCAL_REPO")    || { echo "error: can't read local repo $LOCAL_REPO" >&2; exit 1; }
@@ -55,9 +53,9 @@ fi
 # Each whitelisted GitHub mirror should be in the latest nightly snapshot.
 # Only the local repo is listed: the sync check below holds the array mirror
 # and B2 to that same snapshot, so a mirror found here is in all three.
-[ -f "$GICKUP_CONF" ] || { echo "error: $GICKUP_CONF not found" >&2; exit 1; }
-mapfile -t mirror_repos < <(gickup_include "$GICKUP_CONF")
-[ ${#mirror_repos[@]} -gt 0 ] || { echo "error: no repos under include: in $GICKUP_CONF" >&2; exit 1; }
+[ -f "$GICKUP_ENV" ] || { echo "error: $GICKUP_ENV not found (run homelab-secrets.sh decrypt?)" >&2; exit 1; }
+mapfile -t mirror_repos < <(gickup_include "$GICKUP_ENV")
+[ ${#mirror_repos[@]} -gt 0 ] || { echo "error: no repos in GICKUP_INCLUDE in $GICKUP_ENV" >&2; exit 1; }
 mirrors_missing=0
 for r in "${mirror_repos[@]}"; do
   # ls without --recursive lists the directory's direct children, HEAD among
