@@ -1,7 +1,7 @@
 # GitHub mirrors
 
-A nightly copy of every GitHub repo I own, forks and wikis included, in case
-GitHub loses them or goes away. It's a backup, not a place to work from.
+A nightly copy of a whitelisted set of my GitHub repos, wikis included, in
+case GitHub loses them or goes away. It's a backup, not a place to work from.
 
 ## How it works
 
@@ -21,23 +21,27 @@ GitHub loses them or goes away. It's a backup, not a place to work from.
 
 Issues, PRs and releases are **not** mirrored, only git data.
 
-## Size and B2
+## Choosing repos
 
-The full set was about 2.4 GB on GitHub (2026-10), and git packs barely
-compress further, so this is the biggest thing in B2 after the database
-dumps. To skip a repo, add its name to `exclude:` in
-[`../gickup/conf.yml`](../gickup/conf.yml). Excluding a repo stops future
-updates but leaves its existing mirror on disk. Delete the `.git` directory
-by hand to get it out of future snapshots. B2 frees the space after the
-next monthly prune.
+Only repos named under `include:` in [`../gickup/conf.yml`](../gickup/conf.yml)
+are mirrored. It starts with just `XferSuite` (about 460 MB on GitHub,
+2026-10). Git packs barely compress further, so each repo added grows B2 by
+roughly its GitHub size, against the 10 GB free tier. To find a repo's size:
+`gh api repos/bradmartin333/<repo> --jq .size` (in KB).
+
+Taking a repo off the list stops future updates but leaves its existing
+mirror on disk. Delete the `.git` directory by hand to get it out of future
+snapshots. B2 frees the space after the next monthly prune.
 
 ## Setup
 
 1. Create a fine-grained token at
    <https://github.com/settings/personal-access-tokens/new>. Resource owner:
    `bradmartin333`. Repository access: All repositories. Permissions:
-   Contents read-only. A fine-grained token only sees repos its owner owns,
-   which keeps collaborator and org repos out.
+   Contents read-only. "All repositories" keeps the whitelist in
+   `conf.yml` the only list to edit. A fine-grained token also only sees
+   repos its owner owns, so `include:`, which matches on name alone, can't
+   pick up someone else's repo with the same name.
 2. On the box: `cd /opt/homelab && git pull`, then
    `cp gickup/.env.example gickup/.env` and set `GITHUB_TOKEN`.
 3. `./homelab-secrets.sh commit "add gickup"`.
@@ -54,9 +58,9 @@ next monthly prune.
    already written when the container started.
 6. Check:
    - `docker logs gickup` shows no errors.
-   - `sudo ls /srv/docker-data/gickup/github.com/bradmartin333 | wc -l`
-     matches the repo count, plus one for each wiki.
-   - `sudo git -C /srv/docker-data/gickup/github.com/bradmartin333/homelab.git log -1`
+   - `sudo ls /srv/docker-data/gickup/github.com/bradmartin333` lists each
+     whitelisted repo, plus a `.wiki.git` for each one that has a wiki.
+   - `sudo git -C /srv/docker-data/gickup/github.com/bradmartin333/XferSuite.git log -1`
      shows the latest commit.
 
 ## Token expiry

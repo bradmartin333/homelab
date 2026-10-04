@@ -1,6 +1,6 @@
 services:
-  # Nightly mirrors of every GitHub repo I own (forks included) plus any wikis,
-  # as bare `--mirror` clones under /srv/docker-data/gickup. That path is
+  # Nightly mirrors of the GitHub repos whitelisted in conf.yml, plus their
+  # wikis, as bare `--mirror` clones under /srv/docker-data/gickup. That path is
   # inside restic's SOURCES, so the 03:00 backup carries the mirrors into the
   # local repo, the array copy and B2 — restic's snapshot history is what
   # protects against a force-push or a deleted repo upstream, so gickup itself

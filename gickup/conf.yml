@@ -4,16 +4,19 @@
 source:
   github:
     # Fine-grained token owned by bradmartin333, "All repositories", read-only
-    # Contents + Metadata. A fine-grained token only sees repos its owner owns,
-    # which is what limits this to my repos; a classic token would also list
-    # collaborator and org repos.
+    # Contents + Metadata. "All repositories" so `include:` below is the only
+    # list to edit. A fine-grained token also sees only repos its owner owns,
+    # so `include:`, which matches on name alone, can't pick up a
+    # collaborator's or org's repo with the same name.
     - token_file: /tmp/github-token
       wiki: true
-      # Repo names to skip, to keep B2 under its 10 GB free tier. Removing a
-      # name here stops updates but leaves the existing mirror on disk; delete
+      # Whitelist: only these repos (and their wikis) are mirrored. Every
+      # name added grows B2, which has a 10 GB free tier. Removing a name
+      # stops updates but leaves the existing mirror on disk; delete
       # /srv/docker-data/gickup/github.com/bradmartin333/<name>.git by hand to
       # drop it from future snapshots.
-      exclude: []
+      include:
+        - XferSuite
 
 destination:
   local:
