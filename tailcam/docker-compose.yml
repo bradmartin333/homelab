@@ -1,0 +1,54 @@
+services:
+  tailcam:
+    image: bradmartin333/tailcam:latest
+    container_name: tailcam
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    # Cameras and their mics are found by probing /dev at startup, so a camera
+    # plugged in later needs `docker restart tailcam`.
+    device_cgroup_rules:
+      - "c 81:* rmw"   # video4linux
+      - "c 116:* rmw"  # ALSA
+    volumes:
+      - /dev:/dev:ro
+    networks:
+      - proxy
+    # The app has no auth of its own, so traefik is the gate, the same way the
+    # dog-records worker is: the link carries ?k=<TAILCAM_TOKEN>, the
+    # tailcam-login router trades it for a one-year cookie and redirects to the
+    # bare URL, and the tailcam router only matches requests with that cookie.
+    # No token and no cookie matches no router, so traefik answers 404.
+    # TAILCAM_TOKEN must be hex (openssl rand -hex 32): it is pasted into a
+    # regex below. Changing it breaks every link already handed out.
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.tailcam-login.rule=Host(`${TAILCAM_DOMAIN}`) && Query(`k`, `${TAILCAM_TOKEN:?set TAILCAM_TOKEN in tailcam/.env}`)"
+      - "traefik.http.routers.tailcam-login.entrypoints=websecure"
+      - "traefik.http.routers.tailcam-login.tls=true"
+      - "traefik.http.routers.tailcam-login.tls.certresolver=cloudflare"
+      - "traefik.http.routers.tailcam-login.middlewares=rate-limit@file,tailcam-cookie,tailcam-strip-token"
+      - "traefik.http.routers.tailcam-login.service=tailcam"
+      # Must beat the tailcam router, whose longer rule would otherwise win when
+      # a request has both the cookie and ?k= and pass /?k=... to tailcam (404).
+      - "traefik.http.routers.tailcam-login.priority=1000"
+      # The access log records the query string, i.e. the token. Only this
+      # router ever sees ?k=, so skip logging here; the tailcam router still logs.
+      - "traefik.http.routers.tailcam-login.observability.accesslogs=false"
+      - "traefik.http.middlewares.tailcam-cookie.headers.customresponseheaders.Set-Cookie=tc=${TAILCAM_TOKEN}; Path=/; Max-Age=31536000; HttpOnly; Secure; SameSite=Lax"
+      - "traefik.http.middlewares.tailcam-cookie.headers.customresponseheaders.Cache-Control=no-store"
+      - "traefik.http.middlewares.tailcam-strip-token.redirectregex.regex=^(https?://[^/?]+[^?]*)\\?.*$$"
+      - "traefik.http.middlewares.tailcam-strip-token.redirectregex.replacement=$${1}"
+      - "traefik.http.routers.tailcam.rule=Host(`${TAILCAM_DOMAIN}`) && HeaderRegexp(`Cookie`, `(^|; *)tc=${TAILCAM_TOKEN}( *;|$$)`)"
+      - "traefik.http.routers.tailcam.entrypoints=websecure"
+      - "traefik.http.routers.tailcam.tls=true"
+      - "traefik.http.routers.tailcam.tls.certresolver=cloudflare"
+      - "traefik.http.routers.tailcam.middlewares=rate-limit@file,tailcam-private"
+      - "traefik.http.routers.tailcam.service=tailcam"
+      - "traefik.http.middlewares.tailcam-private.headers.customresponseheaders.X-Robots-Tag=noindex, nofollow"
+      - "traefik.http.services.tailcam.loadbalancer.server.port=8080"
+      - "com.centurylinklabs.watchtower.enable=true"
+
+networks:
+  proxy:
+    external: true
