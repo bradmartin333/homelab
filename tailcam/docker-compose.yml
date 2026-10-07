@@ -1,0 +1,48 @@
+services:
+  tailcam:
+    image: bradmartin333/tailcam:latest
+    container_name: tailcam
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    # Cameras and their mics are found by probing /dev at startup, so a camera
+    # plugged in later needs `docker restart tailcam`.
+    device_cgroup_rules:
+      - "c 81:* rmw"   # video4linux
+      - "c 116:* rmw"  # ALSA
+    volumes:
+      - /dev:/dev:ro
+    networks:
+      - proxy
+    # The app has no auth of its own, so traefik is the gate, the same way the
+    # dog-records worker is: the link carries ?k=<DOGCAM_TOKEN>, the
+    # dogcam-login router trades it for a one-year cookie and redirects to the
+    # bare URL, and the dogcam router only matches requests with that cookie.
+    # No token and no cookie matches no router, so traefik answers 404.
+    # DOGCAM_TOKEN must be hex (openssl rand -hex 32): it is pasted into a
+    # regex below. Changing it breaks every link already handed out.
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.dogcam-login.rule=Host(`${DOGCAM_DOMAIN}`) && Query(`k`, `${DOGCAM_TOKEN:?set DOGCAM_TOKEN in tailcam/.env}`)"
+      - "traefik.http.routers.dogcam-login.entrypoints=websecure"
+      - "traefik.http.routers.dogcam-login.tls=true"
+      - "traefik.http.routers.dogcam-login.tls.certresolver=cloudflare"
+      - "traefik.http.routers.dogcam-login.middlewares=rate-limit@file,dogcam-cookie,dogcam-strip-token"
+      - "traefik.http.routers.dogcam-login.service=tailcam"
+      - "traefik.http.middlewares.dogcam-cookie.headers.customresponseheaders.Set-Cookie=dc=${DOGCAM_TOKEN}; Path=/; Max-Age=31536000; HttpOnly; Secure; SameSite=Lax"
+      - "traefik.http.middlewares.dogcam-cookie.headers.customresponseheaders.Cache-Control=no-store"
+      - "traefik.http.middlewares.dogcam-strip-token.redirectregex.regex=^(https?://[^/?]+[^?]*)\\?.*$$"
+      - "traefik.http.middlewares.dogcam-strip-token.redirectregex.replacement=$${1}"
+      - "traefik.http.routers.dogcam.rule=Host(`${DOGCAM_DOMAIN}`) && HeaderRegexp(`Cookie`, `(^|; *)dc=${DOGCAM_TOKEN}( *;|$$)`)"
+      - "traefik.http.routers.dogcam.entrypoints=websecure"
+      - "traefik.http.routers.dogcam.tls=true"
+      - "traefik.http.routers.dogcam.tls.certresolver=cloudflare"
+      - "traefik.http.routers.dogcam.middlewares=rate-limit@file,dogcam-private"
+      - "traefik.http.routers.dogcam.service=tailcam"
+      - "traefik.http.middlewares.dogcam-private.headers.customresponseheaders.X-Robots-Tag=noindex, nofollow"
+      - "traefik.http.services.tailcam.loadbalancer.server.port=8080"
+      - "com.centurylinklabs.watchtower.enable=true"
+
+networks:
+  proxy:
+    external: true
