@@ -34,8 +34,11 @@ tonight and finding out in June.
 
 **Uptime monitoring.** A free [UptimeRobot](https://uptimerobot.com) monitor
 on each public hostname (`$VIKUNJA_DOMAIN`, `$IMMICH_DOMAIN`,
-`$MEALS_DOMAIN`) so you hear about an outage by email rather than from
-whoever was using it.
+`$MEALS_DOMAIN`, `$TALKOMATIC_DOMAIN`, `$WERK_DOMAIN`) so you hear about an
+outage by email rather than from whoever was using it. `$TAILCAM_DOMAIN` is
+the exception: without its cookie traefik answers 404, and the only other way
+in is a `?k=` link, which would hand the token to UptimeRobot. Its
+`/healthz` is checked by `scripts/healthcheck.sh` instead.
 
 **Grafana** (Tailscale-only, `monitoring/`) is the "what is it doing right
 now" view — dashboards for traefik, postgres, immich, cadvisor, node-exporter,

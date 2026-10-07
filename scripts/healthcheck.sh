@@ -22,7 +22,10 @@ MOUNTS="/ /srv/docker-data /srv/media"
 # filesystem. If sdb or md0 fails to come up, the path still exists and both
 # the stack and restic would silently write to the OS disk instead.
 REQUIRED_MOUNTPOINTS="/srv/docker-data /srv/media"
-PUBLIC_DOMAIN_VARS="VIKUNJA_DOMAIN IMMICH_DOMAIN MEALS_DOMAIN"
+PUBLIC_DOMAIN_VARS="VIKUNJA_DOMAIN IMMICH_DOMAIN MEALS_DOMAIN TALKOMATIC_DOMAIN WERK_DOMAIN"
+# Not in the list above: traefik answers 404 without the tailcam cookie, so
+# TAILCAM_DOMAIN gets its own check under NETWORK, using the token from here.
+TAILCAM_ENV="$REPO_DIR/tailcam/.env"
 LOCAL_REPO=/srv/docker-data/restic-repo
 ARRAY_REPO=/srv/media/restic-mirror
 PASSFILE=/root/.restic-password
@@ -88,7 +91,14 @@ mapfile -t containers < <(cd "$REPO_DIR" && docker compose config | sed -n 's/^[
 [ ${#containers[@]} -gt 0 ] || bad "no containers found — check: cd $REPO_DIR && docker compose config"
 for c in "${containers[@]}"; do
   state=$(docker inspect -f '{{.State.Status}}' "$c" 2>/dev/null || echo missing)
-  [ "$state" = "running" ] && ok "$c" || bad "$c is $state"
+  # Running isn't enough for a container with a HEALTHCHECK (postgres, meals,
+  # tailcam, ...): it stays running while its own probe fails.
+  health=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{end}}' "$c" 2>/dev/null || true)
+  if   [ "$state" != "running" ];                         then bad  "$c is $state"
+  elif [ "$health" = "unhealthy" ];                       then bad  "$c is running but unhealthy — check: docker inspect $c"
+  elif [ "$health" = "starting" ];                        then warn "$c is running, healthcheck still starting"
+  else                                                         ok   "$c"
+  fi
 done
 looping=$(docker ps --filter status=restarting -q | wc -l)
 [ "$looping" -eq 0 ] && ok "nothing restart-looping" || bad "$looping restart-looping"
@@ -287,6 +297,23 @@ for var in $PUBLIC_DOMAIN_VARS; do
   curl -sf --max-time 15 -o /dev/null "$url" \
     && ok "$url responding" || bad "$url not responding"
 done
+# tailcam: present the same cookie a visitor's browser holds, so this goes
+# through the real tunnel -> traefik -> cookie router -> app path. The header
+# is fed on stdin so the token stays out of `ps`; traefik's access log drops
+# request headers by default, so it isn't logged there either.
+if [ -z "${TAILCAM_DOMAIN:-}" ]; then
+  warn "TAILCAM_DOMAIN not set in $REPO_DIR/.env — skipping its URL check"
+else
+  tailcam_token=$({ grep -m1 '^TAILCAM_TOKEN=' "$TAILCAM_ENV" 2>/dev/null || true; } | cut -d= -f2- | tr -d "\"' \r")
+  url="https://$TAILCAM_DOMAIN/healthz"
+  if [ -z "$tailcam_token" ]; then
+    bad "TAILCAM_TOKEN not found in $TAILCAM_ENV — cannot check $url"
+  else
+    printf 'Cookie: tc=%s\n' "$tailcam_token" \
+      | curl -sf --max-time 15 -o /dev/null -H @- "$url" \
+      && ok "$url responding" || bad "$url not responding"
+  fi
+fi
 
 echo; echo "UPDATES"
 pending=$(apt list --upgradable 2>/dev/null | grep -c upgradable)
