@@ -32,6 +32,9 @@ services:
       # Must beat the tailcam router, whose longer rule would otherwise win when
       # a request has both the cookie and ?k= and pass /?k=... to tailcam (404).
       - "traefik.http.routers.tailcam-login.priority=1000"
+      # The access log records the query string, i.e. the token. Only this
+      # router ever sees ?k=, so skip logging here; the tailcam router still logs.
+      - "traefik.http.routers.tailcam-login.observability.accesslogs=false"
       - "traefik.http.middlewares.tailcam-cookie.headers.customresponseheaders.Set-Cookie=tc=${TAILCAM_TOKEN}; Path=/; Max-Age=31536000; HttpOnly; Secure; SameSite=Lax"
       - "traefik.http.middlewares.tailcam-cookie.headers.customresponseheaders.Cache-Control=no-store"
       - "traefik.http.middlewares.tailcam-strip-token.redirectregex.regex=^(https?://[^/?]+[^?]*)\\?.*$$"
