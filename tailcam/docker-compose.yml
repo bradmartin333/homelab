@@ -29,6 +29,9 @@ services:
       - "traefik.http.routers.dogcam-login.tls.certresolver=cloudflare"
       - "traefik.http.routers.dogcam-login.middlewares=rate-limit@file,dogcam-cookie,dogcam-strip-token"
       - "traefik.http.routers.dogcam-login.service=tailcam"
+      # Must beat the dogcam router, whose longer rule would otherwise win when
+      # a request has both the cookie and ?k= and pass /?k=... to tailcam (404).
+      - "traefik.http.routers.dogcam-login.priority=1000"
       - "traefik.http.middlewares.dogcam-cookie.headers.customresponseheaders.Set-Cookie=dc=${DOGCAM_TOKEN}; Path=/; Max-Age=31536000; HttpOnly; Secure; SameSite=Lax"
       - "traefik.http.middlewares.dogcam-cookie.headers.customresponseheaders.Cache-Control=no-store"
       - "traefik.http.middlewares.dogcam-strip-token.redirectregex.regex=^(https?://[^/?]+[^?]*)\\?.*$$"
