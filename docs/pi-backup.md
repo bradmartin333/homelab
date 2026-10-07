@@ -103,8 +103,10 @@ sudo chown -R brad:brad /mnt/offsite/restic
 ```ini
 [Unit]
 Description=restic REST server (Pi backup target)
-After=network-online.target
-Wants=network-online.target
+After=network-online.target tailscaled.service
+Wants=network-online.target tailscaled.service
+# Never stop retrying; see the note below.
+StartLimitIntervalSec=0
 
 [Service]
 ExecStart=/usr/local/bin/rest-server \
@@ -113,6 +115,7 @@ ExecStart=/usr/local/bin/rest-server \
   --listen <PI_TS_IP>:8000 \
   --private-repos
 Restart=on-failure
+RestartSec=5s
 User=brad
 
 [Install]
@@ -121,6 +124,15 @@ WantedBy=multi-user.target
 Binding to `<PI_TS_IP>` specifically (not `0.0.0.0`) means it's reachable
 only over Tailscale, never on the house LAN. Get `<PI_TS_IP>` from
 `tailscale ip -4` run on the Pi itself.
+
+It also means the server can't start until Tailscale has assigned that
+address, which happens a few seconds after `tailscaled.service` itself counts
+as started, so `After=` alone doesn't cover it. Without `RestartSec`, the
+unit's five restarts all fail within a second, systemd gives up, and the
+server stays down until someone starts it by hand. That happened after a
+reboot on 2026-10-05: every nightly backup after it failed at the Pi step
+with `connection refused` and sent the `/fail` ping. With a 5s delay and no
+start limit, it just retries until the address shows up.
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable --now restic-rest-server
